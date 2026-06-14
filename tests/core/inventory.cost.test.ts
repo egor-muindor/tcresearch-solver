@@ -67,3 +67,13 @@ describe('globalMinObtain', () => {
     expect(globalMinObtain(inv, data)).toBe(0);
   });
 });
+
+describe('obtainCost cache soundness', () => {
+  it('keys the obtainCost cache on AspectData too (no stale cost across data on one Inventory)', () => {
+    const inv = makeInventory([['air', 0], ['fire', 100], ['water', 100]], DEFAULT_THRESHOLD);
+    const dataA = buildAspectData({ overrideCombinations: { compound: ['fire', 'water'] }, addons: [], overrideTranslate: { compound: 'compound' } });
+    const dataB = buildAspectData({ overrideCombinations: { compound: ['air', 'fire'] }, addons: [], overrideTranslate: { compound: 'compound' } });
+    expect(obtainCost(inv, dataA, 'compound')).toBe(0);
+    expect(obtainCost(inv, dataB, 'compound')).toBe(Number.POSITIVE_INFINITY);
+  });
+});

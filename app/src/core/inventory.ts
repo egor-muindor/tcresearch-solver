@@ -38,13 +38,21 @@ export function directPenalty(inv: Inventory, _data: AspectData, a: Aspect): num
   return Number.POSITIVE_INFINITY;
 }
 
-const obtainCache = new WeakMap<Inventory, Map<Aspect, number>>();
+// Keyed on (AspectData, Inventory): obtainCost depends on BOTH the recipe graph and the supply,
+// so omitting AspectData would return stale costs when an Inventory is reused with different data
+// (and break g_lb/globalMinObtain admissibility in the solver). Nested WeakMaps auto-GC.
+const obtainCache = new WeakMap<AspectData, WeakMap<Inventory, Map<Aspect, number>>>();
 
 export function obtainCost(inv: Inventory, data: AspectData, a: Aspect): number {
-  let cache = obtainCache.get(inv);
+  let byInv = obtainCache.get(data);
+  if (!byInv) {
+    byInv = new WeakMap();
+    obtainCache.set(data, byInv);
+  }
+  let cache = byInv.get(inv);
   if (!cache) {
     cache = new Map();
-    obtainCache.set(inv, cache);
+    byInv.set(inv, cache);
   }
   return obtainRec(inv, data, a, cache, new Set());
 }
