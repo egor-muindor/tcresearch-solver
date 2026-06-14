@@ -75,4 +75,20 @@ describe('allocate (exact §4.3)', () => {
     const lb = 2 * obtainCost(inv, data, 'light');
     expect(lb).toBeLessThanOrEqual(r.scarcityCost);
   });
+
+  it('mixes direct and craft under contention: takes one compound directly to free a shared component (spec §4.3)', () => {
+    // xx=air+fire, yy=air+water share air (supply 1). xx has direct supply (1), yy none. Crafting BOTH
+    // needs 2 air (only 1) => must take xx directly and craft yy from the single air. Greedy "craft all" fails.
+    const synth = buildAspectData({
+      overrideCombinations: { xx: ['air', 'fire'], yy: ['air', 'water'] },
+      addons: [],
+      overrideTranslate: { xx: 'xx', yy: 'yy' },
+    });
+    const inv = makeInventory([['xx', 1], ['air', 1], ['fire', 100], ['water', 100]], DEFAULT_THRESHOLD);
+    const r = allocate(inv, synth, new Map([['xx', 1], ['yy', 1]]));
+    expect(r.feasible).toBe(true);
+    expect(r.leafConsumption.get('xx')).toBe(1);
+    expect(r.leafConsumption.get('air')).toBe(1);
+    expect(r.craftOps).toBe(1);
+  });
 });
