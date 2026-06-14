@@ -37,7 +37,7 @@ import { confirmDialog } from './ui/modal';
 // --- constants ---
 const DEFAULT_RADIUS = 2;
 const DEFAULT_THRESHOLD = 50;
-const DEFAULT_ADDONS: readonly string[] = ['fm', 'mb', 'gt'];
+const DEFAULT_ADDONS: readonly string[] = ['fm', 'mb', 'gt', 'tb', 'av'];
 
 // --- build aspect data ---
 const data = buildAspectData({ addons: [...DEFAULT_ADDONS] });
@@ -637,7 +637,9 @@ function restoreState(): void {
   if (saved) {
     board = deserializeBoard(data, saved.board);
     threshold = saved.threshold;
-    addons = saved.addons;
+    // Addons aren't user-configurable; always mirror DEFAULT_ADDONS so the solver
+    // matches the UI `data` (ignore any stale persisted set, e.g. pre-tb/av saves).
+    addons = [...DEFAULT_ADDONS];
     supply = new Map(saved.supply);
     accountSupply = saved.accountSupply;
 
