@@ -1,5 +1,5 @@
 import type { Aspect, AspectData } from '../data/aspects';
-import { type Hex, hexKey, isOnBoard, boardCells, neighborsOf } from './hex';
+import { type Hex, hexKey, parseHexKey, isOnBoard, boardCells, neighborsOf } from './hex';
 import { isValidLink } from './aspectGraph';
 
 export type CellState =
@@ -121,4 +121,53 @@ export function allAnchorsConnected(board: Board): boolean {
 /** A finished solution: fully valid AND all anchors in one component. */
 export function isComplete(data: AspectData, board: Board): boolean {
   return validate(data, board).valid;
+}
+
+export const BOARD_SCHEMA_VERSION = 1;
+
+export interface SerializedCell { coord: string; state: 'DEAD' | 'ANCHOR' | 'PLACED'; aspect?: Aspect; locked?: boolean; }
+export interface SerializedBoard { schemaVersion: number; radius: number; cells: SerializedCell[]; }
+
+export function serializeBoard(board: Board): SerializedBoard {
+  const cells: SerializedCell[] = [];
+  for (const [key, s] of board.cells) {
+    if (s.kind === 'EMPTY') continue;
+    if (s.kind === 'DEAD') cells.push({ coord: key, state: 'DEAD' });
+    else if (s.kind === 'ANCHOR') cells.push({ coord: key, state: 'ANCHOR', aspect: s.aspect });
+    else cells.push({ coord: key, state: 'PLACED', aspect: s.aspect, locked: s.locked });
+  }
+  return { schemaVersion: BOARD_SCHEMA_VERSION, radius: board.radius, cells };
+}
+
+export function deserializeBoard(data: AspectData, raw: unknown): Board {
+  if (typeof raw !== 'object' || raw === null) throw new Error('board: not an object');
+  const obj = raw as Record<string, unknown>;
+  const radius = obj.radius;
+  if (!Number.isInteger(radius) || (radius as number) < 2 || (radius as number) > 5) {
+    throw new Error(`board: bad radius ${String(radius)}`);
+  }
+  // schemaVersion migration hook (only v1 exists today).
+  const ver = obj.schemaVersion;
+  if (ver !== BOARD_SCHEMA_VERSION) throw new Error(`board: unsupported schemaVersion ${String(ver)}`);
+  if (!Array.isArray(obj.cells)) throw new Error('board: cells must be an array');
+
+  const board = createBoard(radius as number);
+  for (const c of obj.cells as unknown[]) {
+    if (typeof c !== 'object' || c === null) throw new Error('board: bad cell');
+    const cell = c as Record<string, unknown>;
+    if (typeof cell.coord !== 'string') throw new Error('board: cell.coord must be a string');
+    const hex = parseHexKey(cell.coord);
+    if (!isOnBoard(hex, board.radius)) throw new Error(`board: coord ${cell.coord} off radius ${board.radius}`);
+    const checkAspect = (a: unknown): Aspect => {
+      if (typeof a !== 'string' || !data.universe.has(a)) throw new Error(`board: unknown aspect '${String(a)}'`);
+      return a;
+    };
+    switch (cell.state) {
+      case 'DEAD': setState(board, hex, { kind: 'DEAD' }); break;
+      case 'ANCHOR': setState(board, hex, { kind: 'ANCHOR', aspect: checkAspect(cell.aspect) }); break;
+      case 'PLACED': setState(board, hex, { kind: 'PLACED', aspect: checkAspect(cell.aspect), locked: cell.locked === true }); break;
+      default: throw new Error(`board: bad cell.state '${String(cell.state)}'`);
+    }
+  }
+  return board;
 }
