@@ -1,10 +1,16 @@
 import type { Aspect, AspectData } from '../data/aspects';
 import { iconUrl } from './icons';
 import { showTooltip, repositionTooltip, hideTooltip } from './tooltip';
+import { aspectMatchesQuery } from './search';
 
 export class AspectPalette {
   private activeBrush: Aspect | null = null;
   private itemEls = new Map<Aspect, HTMLElement>();
+  private searchInput!: HTMLInputElement;
+  private gridEl!: HTMLElement;
+  /** Group header element keyed by label, so filtering can hide empty groups. */
+  private groupHeaders = new Map<string, HTMLElement>();
+  private noResultsEl!: HTMLElement;
 
   constructor(
     private container: HTMLElement,
@@ -13,7 +19,31 @@ export class AspectPalette {
     private grouped: boolean = true,
   ) {
     this.container.classList.add('aspect-palette');
+    this.buildChrome();
     this.render();
+  }
+
+  /** Build the persistent parts of the palette (search box + grid wrapper) once. */
+  private buildChrome(): void {
+    this.searchInput = document.createElement('input');
+    this.searchInput.type = 'text';
+    this.searchInput.className = 'aspect-palette__search ui-search';
+    this.searchInput.placeholder = 'Search…';
+    this.searchInput.setAttribute('aria-label', 'Search aspects');
+    this.searchInput.addEventListener('input', () => {
+      this.applyFilter();
+    });
+    this.container.appendChild(this.searchInput);
+
+    this.gridEl = document.createElement('div');
+    this.gridEl.className = 'aspect-palette__grid';
+    this.container.appendChild(this.gridEl);
+
+    // Empty-search-result hint (hidden unless a query matches nothing)
+    this.noResultsEl = document.createElement('div');
+    this.noResultsEl.className = 'aspect-palette__no-results';
+    this.noResultsEl.hidden = true;
+    this.container.appendChild(this.noResultsEl);
   }
 
   /** Toggle Primal / Compound grouping and re-render, preserving the active brush. */
@@ -23,12 +53,15 @@ export class AspectPalette {
     const active = this.activeBrush;
     this.render();
     if (active !== null) this.setActiveBrush(active);
+    // Re-apply any active filter so it survives the grouping toggle.
+    this.applyFilter();
   }
 
   private render(): void {
-    this.container.innerHTML = '';
+    this.gridEl.innerHTML = '';
     this.itemEls.clear();
-    this.container.classList.toggle('aspect-palette--grouped', this.grouped);
+    this.groupHeaders.clear();
+    this.gridEl.classList.toggle('aspect-palette--grouped', this.grouped);
 
     // Mod registration order (primals first, then compounds by tier).
     const order = this.data.order;
@@ -39,7 +72,7 @@ export class AspectPalette {
       this.appendGroup('Primal', primals);
       this.appendGroup('Compound', compounds);
     } else {
-      for (const aspect of order) this.container.appendChild(this.buildItem(aspect));
+      for (const aspect of order) this.gridEl.appendChild(this.buildItem(aspect));
     }
   }
 
@@ -48,8 +81,45 @@ export class AspectPalette {
     const header = document.createElement('div');
     header.className = 'aspect-palette__group-label';
     header.textContent = label;
-    this.container.appendChild(header);
-    for (const aspect of aspects) this.container.appendChild(this.buildItem(aspect));
+    this.gridEl.appendChild(header);
+    this.groupHeaders.set(label, header);
+    for (const aspect of aspects) this.gridEl.appendChild(this.buildItem(aspect));
+  }
+
+  /** Hide non-matching items (and empty group headers) per the current query. */
+  private applyFilter(): void {
+    const query = this.searchInput.value;
+    let visible = 0;
+    if (this.grouped) {
+      const order = this.data.order;
+      visible += this.filterGroup('Primal', order.filter((a) => this.data.primals.has(a)), query);
+      visible += this.filterGroup('Compound', order.filter((a) => !this.data.primals.has(a)), query);
+    } else {
+      for (const [aspect, el] of this.itemEls) {
+        const latin = this.data.translate.get(aspect) ?? aspect;
+        const matches = aspectMatchesQuery(query, latin, aspect);
+        el.classList.toggle('aspect-palette__item--hidden', !matches);
+        if (matches) visible++;
+      }
+    }
+    this.noResultsEl.hidden = visible !== 0;
+    if (visible === 0) this.noResultsEl.textContent = `No aspects match “${query.trim()}”`;
+  }
+
+  /** Filter one group's items; hide the header when no item in it matches. Returns visible count. */
+  private filterGroup(label: string, aspects: readonly Aspect[], query: string): number {
+    let visible = 0;
+    for (const aspect of aspects) {
+      const el = this.itemEls.get(aspect);
+      if (!el) continue;
+      const latin = this.data.translate.get(aspect) ?? aspect;
+      const matches = aspectMatchesQuery(query, latin, aspect);
+      el.classList.toggle('aspect-palette__item--hidden', !matches);
+      if (matches) visible++;
+    }
+    const header = this.groupHeaders.get(label);
+    if (header) header.classList.toggle('aspect-palette__group-label--hidden', visible === 0);
+    return visible;
   }
 
   private buildItem(aspect: Aspect): HTMLElement {

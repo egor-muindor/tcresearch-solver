@@ -357,14 +357,67 @@ body {
   font-size: 11px;
 }
 
-/* Aspect palette — DENSE NEI-style icon grid, packed to top */
+/* Aspect palette — search box stacked above a DENSE NEI-style icon grid */
 .aspect-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.aspect-palette__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(calc(26px * var(--palette-scale)), 1fr));
   grid-auto-rows: min-content;
   row-gap: 2px;
   column-gap: 3px;
   align-content: start;
+}
+
+/* ===== Shared parchment search input (palette + inventory) ===== */
+.ui-search {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: rgba(230, 210, 160, 0.6);
+  background-image: none;
+  color: var(--ink);
+  border: 1px solid rgba(100,65,30,0.6);
+  border-top-color: rgba(100,65,30,0.3);
+  border-radius: 2px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.ui-search::placeholder {
+  color: var(--ink-light);
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.ui-search:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2), 0 0 0 1px var(--gold);
+}
+
+/* "No aspects match …" hint shown when a search filters everything out */
+.aspect-palette__no-results,
+.inventory-panel__no-results {
+  padding: 8px 4px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-light);
+  text-align: center;
+}
+
+/* Hidden items/rows filtered out by the search box.
+   !important so this hide utility always beats the base .aspect-palette__item
+   (display:flex) / .inventory-panel__row rules regardless of source order. */
+.aspect-palette__item--hidden,
+.aspect-palette__group-label--hidden,
+.inventory-panel__row--hidden {
+  display: none !important;
 }
 
 .aspect-palette__item {

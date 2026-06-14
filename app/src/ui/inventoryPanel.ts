@@ -1,6 +1,7 @@
 import type { Aspect, AspectData } from '../data/aspects';
 import type { AllocationResult } from '../core/inventory';
 import { iconUrl } from './icons';
+import { aspectMatchesQuery } from './search';
 
 export interface InventoryCallbacks {
   onSupplyChange: (aspect: Aspect, count: number) => void;
@@ -12,6 +13,9 @@ export interface InventoryCallbacks {
 
 export class InventoryPanel {
   private supplyInputs = new Map<Aspect, HTMLInputElement>();
+  private rowEls = new Map<Aspect, HTMLElement>();
+  private searchInput!: HTMLInputElement;
+  private noResultsEl!: HTMLElement;
   private thresholdInput!: HTMLInputElement;
   private allocArea!: HTMLElement;
   private lastAlloc: AllocationResult | null = null;
@@ -50,6 +54,18 @@ export class InventoryPanel {
 
       this.container.appendChild(headerRow);
     }
+
+    // Search box — always-active panel chrome that filters the supply list below
+    // (stays usable even when accounting is off, so it isn't a dead/dimmed field).
+    this.searchInput = document.createElement('input');
+    this.searchInput.type = 'text';
+    this.searchInput.className = 'inventory-panel__search ui-search';
+    this.searchInput.placeholder = 'Search…';
+    this.searchInput.setAttribute('aria-label', 'Search inventory');
+    this.searchInput.addEventListener('input', () => {
+      this.applyFilter();
+    });
+    this.container.appendChild(this.searchInput);
 
     // Account for inventory toggle (top of panel, unchecked by default)
     const accountRow = document.createElement('div');
@@ -169,9 +185,16 @@ export class InventoryPanel {
       row.appendChild(nameLabel);
       row.appendChild(input);
       listEl.appendChild(row);
+      this.rowEls.set(aspect, row);
     }
 
     this.container.appendChild(listEl);
+
+    // Empty-search-result hint (hidden unless a query matches nothing)
+    this.noResultsEl = document.createElement('div');
+    this.noResultsEl.className = 'inventory-panel__no-results';
+    this.noResultsEl.hidden = true;
+    this.container.appendChild(this.noResultsEl);
 
     // Apply initial disabled state (account is unchecked by default)
     this.applyDisabledState(true);
@@ -271,6 +294,23 @@ export class InventoryPanel {
   }
 
   // --- helpers ---
+
+  /**
+   * Toggle each supply row's visibility by the search query WITHOUT rebuilding
+   * rows, so number values and disabled state are preserved.
+   */
+  private applyFilter(): void {
+    const query = this.searchInput.value;
+    let visible = 0;
+    for (const [aspect, row] of this.rowEls) {
+      const latin = this.data.translate.get(aspect) ?? aspect;
+      const matches = aspectMatchesQuery(query, latin, aspect);
+      row.classList.toggle('inventory-panel__row--hidden', !matches);
+      if (matches) visible++;
+    }
+    this.noResultsEl.hidden = visible !== 0;
+    if (visible === 0) this.noResultsEl.textContent = `No aspects match “${query.trim()}”`;
+  }
 
   private applyDisabledState(disabled: boolean): void {
     this.thresholdInput.disabled = disabled;
