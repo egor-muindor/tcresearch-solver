@@ -1,6 +1,6 @@
 import type { AspectData, Aspect } from '../data/aspects';
-import { type Inventory, obtainCost, allocate, type AllocationResult, type AllocBudget } from './inventory';
-import { type Board, createBoard, getState, setState, filledCells, filledNeighbors, allAnchorsConnected, anchorCells, validate } from './board';
+import { type Inventory, obtainCost, allocate, type AllocationResult, type AllocBudget, validateInventory } from './inventory';
+import { type Board, createBoard, getState, setState, filledCells, filledNeighbors, allAnchorsConnected, anchorCells, validate, type ValidationError } from './board';
 import { type Hex, hexKey, parseHexKey, neighborsOf, boardCells, isOnBoard } from './hex';
 import { isValidLink } from './aspectGraph';
 import { type Cost, addCost, compareCost, lessThan, ZERO_COST } from './cost';
@@ -9,6 +9,8 @@ import { remainderHeuristic } from './heuristic';
 export type SolverStatus =
   | 'OPTIMAL' | 'FEASIBLE_TIMEOUT' | 'UNKNOWN_TIMEOUT'
   | 'INFEASIBLE_INVENTORY' | 'UNSAT_PROVEN' | 'CANCELLED' | 'INVALID_INPUT';
+
+export const MAX_ANCHORS = 8;
 
 export interface SolveBudget { maxNodes: number; maxTimeMs: number; beam?: number; }
 export interface Progress { nodes: number; best: Cost | null; timeMs: number; status: 'searching' | 'seeding' | 'beam'; }
@@ -47,6 +49,32 @@ export interface SolveResult {
   cost?: Cost;
   allocation?: AllocationResult;
   stats: { nodes: number; timeMs: number };
+}
+
+export interface SolveWithValidationResult extends SolveResult {
+  errors?: ValidationError[];
+  message?: string;
+}
+
+export function solveWithValidation(opts: SolveOptions): SolveWithValidationResult {
+  // Inventory pre-validation (spec §4.1): reject negative/non-integer supply or threshold<=0
+  // up front instead of letting it surface as a worker error mid-search.
+  try {
+    validateInventory(opts.inventory);
+  } catch (err) {
+    return { status: 'INVALID_INPUT', message: err instanceof Error ? err.message : String(err), stats: { nodes: 0, timeMs: 0 } };
+  }
+  // Anchor cap (spec §5.1): core boundary enforces max 8 anchors.
+  const anchorCount = anchorCells(opts.board).length;
+  if (anchorCount > MAX_ANCHORS) {
+    return { status: 'INVALID_INPUT', message: `too many anchors: ${anchorCount} (max ${MAX_ANCHORS})`, stats: { nodes: 0, timeMs: 0 } };
+  }
+  const v = validate(opts.data, opts.board);
+  const unfixable = v.errors.filter((e) => e.type !== 'ANCHORS_DISCONNECTED');
+  if (unfixable.length > 0) {
+    return { status: 'INVALID_INPUT', errors: unfixable, stats: { nodes: 0, timeMs: 0 } };
+  }
+  return solve(opts);
 }
 
 interface Placement { key: string; aspect: Aspect; }
