@@ -19,12 +19,12 @@ interface ButtonDef {
 }
 
 const BUTTONS: ButtonDef[] = [
-  { name: 'deadHex',       label: 'Мёртвая клетка' },
-  { name: 'erase',         label: 'Стереть' },
-  { name: 'clear',         label: 'Очистить', action: true },
-  { name: 'autoSolve',     label: 'Авто-решение', action: true },
-  { name: 'validate',      label: 'Проверить', action: true },
-  { name: 'continueSolve', label: 'Продолжить', action: true },
+  { name: 'deadHex',       label: 'Dead Hex' },
+  { name: 'erase',         label: 'Erase' },
+  { name: 'clear',         label: 'Clear', action: true },
+  { name: 'autoSolve',     label: 'Auto Solve', action: true },
+  { name: 'validate',      label: 'Validate', action: true },
+  { name: 'continueSolve', label: 'Continue Solve', action: true },
 ];
 
 export class Toolbar {
@@ -49,7 +49,7 @@ export class Toolbar {
     radiusGroup.className = 'toolbar__group';
 
     const radiusLabel = document.createElement('label');
-    radiusLabel.textContent = 'Радиус:';
+    radiusLabel.textContent = 'Radius:';
     radiusLabel.className = 'toolbar__label';
     radiusLabel.htmlFor = 'toolbar-radius';
 
@@ -99,7 +99,7 @@ export class Toolbar {
     this.autoSolveWarning = document.createElement('span');
     this.autoSolveWarning.className = 'toolbar__warning';
     this.autoSolveWarning.style.display = 'none';
-    this.autoSolveWarning.textContent = 'Слишком много якорей (>8)';
+    this.autoSolveWarning.textContent = 'Too many anchors (>8)';
     toolGroup.appendChild(this.autoSolveWarning);
 
     this.container.appendChild(toolGroup);

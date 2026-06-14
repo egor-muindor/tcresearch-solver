@@ -39,12 +39,7 @@ export class AspectPalette {
       img.height = 24;
       img.className = 'aspect-palette__icon';
 
-      const label = document.createElement('span');
-      label.className = 'aspect-palette__label';
-      label.textContent = latin;
-
       item.appendChild(img);
-      item.appendChild(label);
 
       item.addEventListener('click', () => {
         this.setActiveBrush(aspect);

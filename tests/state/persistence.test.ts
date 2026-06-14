@@ -15,7 +15,7 @@ class FakeStorage {
 function sampleState(): AppState {
   const b = createBoard(3);
   setState(b, { q: 0, r: 0 }, { kind: 'ANCHOR', aspect: 'air' });
-  return { schemaVersion: STATE_SCHEMA_VERSION, radius: 3, addons: ['fm', 'mb', 'gt'], threshold: 50, supply: [['air', 64]], board: serializeBoard(b) };
+  return { schemaVersion: STATE_SCHEMA_VERSION, radius: 3, addons: ['fm', 'mb', 'gt'], threshold: 50, supply: [['air', 64]], board: serializeBoard(b), accountSupply: false };
 }
 
 describe('persistence', () => {
@@ -51,5 +51,23 @@ describe('persistence', () => {
     const s = new FakeStorage();
     s.setItem('gtnh-solver-state', JSON.stringify({ ...sampleState(), supply: [['air', -5]] }));
     expect(loadState(data, s as unknown as Storage)).toBeNull();
+  });
+
+  it('round-trips accountSupply', () => {
+    const s = new FakeStorage();
+    const state = { ...sampleState(), accountSupply: false };
+    saveState(state, s as unknown as Storage);
+    const loaded = loadState(data, s as unknown as Storage);
+    expect(loaded?.accountSupply).toBe(false);
+  });
+
+  it('loads accountSupply as false when field is missing from stored state', () => {
+    const s = new FakeStorage();
+    const base = sampleState();
+    // Omit accountSupply from the stored object
+    const { accountSupply: _omit, ...withoutAccount } = base;
+    s.setItem('gtnh-solver-state', JSON.stringify(withoutAccount));
+    const loaded = loadState(data, s as unknown as Storage);
+    expect(loaded?.accountSupply).toBe(false);
   });
 });

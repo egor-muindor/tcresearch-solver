@@ -6,6 +6,7 @@ export interface InventoryCallbacks {
   onSupplyChange: (aspect: Aspect, count: number) => void;
   onThresholdChange: (n: number) => void;
   onSubtractUsed: () => void;
+  onAccountChange: (enabled: boolean) => void;
 }
 
 export class InventoryPanel {
@@ -13,6 +14,8 @@ export class InventoryPanel {
   private thresholdInput!: HTMLInputElement;
   private allocArea!: HTMLElement;
   private lastAlloc: AllocationResult | null = null;
+  private accountCheckbox!: HTMLInputElement;
+  private subtractBtn!: HTMLButtonElement;
 
   constructor(
     private container: HTMLElement,
@@ -26,12 +29,35 @@ export class InventoryPanel {
   private build(): void {
     this.container.innerHTML = '';
 
+    // Account for inventory toggle (top of panel, unchecked by default)
+    const accountRow = document.createElement('div');
+    accountRow.className = 'inventory-panel__account-row';
+
+    this.accountCheckbox = document.createElement('input');
+    this.accountCheckbox.type = 'checkbox';
+    this.accountCheckbox.id = 'inv-account';
+    this.accountCheckbox.checked = false;
+
+    const accountLabel = document.createElement('label');
+    accountLabel.htmlFor = 'inv-account';
+    accountLabel.textContent = 'Account for inventory';
+
+    accountRow.appendChild(this.accountCheckbox);
+    accountRow.appendChild(accountLabel);
+    this.container.appendChild(accountRow);
+
+    this.accountCheckbox.addEventListener('change', () => {
+      const enabled = this.accountCheckbox.checked;
+      this.applyDisabledState(!enabled);
+      this.callbacks.onAccountChange(enabled);
+    });
+
     // Threshold row
     const threshRow = document.createElement('div');
     threshRow.className = 'inventory-panel__thresh-row';
 
     const threshLabel = document.createElement('label');
-    threshLabel.textContent = 'Порог:';
+    threshLabel.textContent = 'Threshold:';
     threshLabel.className = 'inventory-panel__thresh-label';
 
     this.thresholdInput = document.createElement('input');
@@ -60,14 +86,14 @@ export class InventoryPanel {
     this.container.appendChild(this.allocArea);
 
     // Subtract used button
-    const subtractBtn = document.createElement('button');
-    subtractBtn.type = 'button';
-    subtractBtn.className = 'inventory-panel__subtract-btn';
-    subtractBtn.textContent = 'Вычесть использованное';
-    subtractBtn.addEventListener('click', () => {
+    this.subtractBtn = document.createElement('button');
+    this.subtractBtn.type = 'button';
+    this.subtractBtn.className = 'inventory-panel__subtract-btn';
+    this.subtractBtn.textContent = 'Subtract used';
+    this.subtractBtn.addEventListener('click', () => {
       this.callbacks.onSubtractUsed();
     });
-    this.container.appendChild(subtractBtn);
+    this.container.appendChild(this.subtractBtn);
 
     // Supply list
     const listEl = document.createElement('div');
@@ -91,12 +117,9 @@ export class InventoryPanel {
       img.width = 20;
       img.height = 20;
       img.className = 'inventory-panel__icon';
+      img.title = latin;
 
-      const label = document.createElement('label');
-      label.textContent = latin;
-      label.className = 'inventory-panel__aspect-label';
       const inputId = `inv-supply-${aspect}`;
-      label.htmlFor = inputId;
 
       const input = document.createElement('input');
       input.type = 'number';
@@ -105,6 +128,7 @@ export class InventoryPanel {
       input.step = '1';
       input.value = '0';
       input.className = 'inventory-panel__supply-input';
+      input.title = latin;
 
       input.addEventListener('change', () => {
         const v = this.parseNonNegInt(input.value, 0);
@@ -115,12 +139,14 @@ export class InventoryPanel {
       this.supplyInputs.set(aspect, input);
 
       row.appendChild(img);
-      row.appendChild(label);
       row.appendChild(input);
       listEl.appendChild(row);
     }
 
     this.container.appendChild(listEl);
+
+    // Apply initial disabled state (account is unchecked by default)
+    this.applyDisabledState(true);
   }
 
   // --- public API ---
@@ -146,6 +172,22 @@ export class InventoryPanel {
     return this.parsePositiveInt(this.thresholdInput.value, 50);
   }
 
+  /** Get whether inventory accounting is enabled. */
+  getAccountEnabled(): boolean {
+    return this.accountCheckbox.checked;
+  }
+
+  /** Set inventory accounting enabled state (does NOT fire onAccountChange). */
+  setAccountEnabled(enabled: boolean): void {
+    this.accountCheckbox.checked = enabled;
+    this.applyDisabledState(!enabled);
+    if (enabled) {
+      this.container.classList.remove('inventory-panel--ignored');
+    } else {
+      this.container.classList.add('inventory-panel--ignored');
+    }
+  }
+
   /** Show allocation result in the panel (craftOps + leaf consumption breakdown). */
   setAllocation(alloc: AllocationResult): void {
     this.lastAlloc = alloc;
@@ -167,15 +209,16 @@ export class InventoryPanel {
 
     const opsLine = document.createElement('div');
     const feasStr =
-      alloc.feasible === true ? 'Возможно' :
-      alloc.feasible === false ? 'Невозможно' : 'Неизвестно';
-    opsLine.textContent = `${feasStr} · крафтов: ${alloc.craftOps}`;
+      alloc.feasible === true ? 'Possible' :
+      alloc.feasible === false ? 'Impossible' : 'Unknown';
+    const craftOps = alloc.craftOps;
+    opsLine.textContent = feasStr + ' - crafts: ' + craftOps;
     this.allocArea.appendChild(opsLine);
 
     if (alloc.leafConsumption.size > 0) {
       const title = document.createElement('div');
       title.className = 'inventory-panel__alloc-title';
-      title.textContent = 'Прямые расходы:';
+      title.textContent = 'Direct costs:';
       this.allocArea.appendChild(title);
 
       for (const [aspect, count] of alloc.leafConsumption) {
@@ -200,6 +243,19 @@ export class InventoryPanel {
   }
 
   // --- helpers ---
+
+  private applyDisabledState(disabled: boolean): void {
+    this.thresholdInput.disabled = disabled;
+    for (const input of this.supplyInputs.values()) {
+      input.disabled = disabled;
+    }
+    this.subtractBtn.disabled = disabled;
+    if (disabled) {
+      this.container.classList.add('inventory-panel--ignored');
+    } else {
+      this.container.classList.remove('inventory-panel--ignored');
+    }
+  }
 
   private parseNonNegInt(s: string, fallback: number): number {
     const v = parseInt(s, 10);

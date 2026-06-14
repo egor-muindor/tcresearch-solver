@@ -11,6 +11,7 @@ export interface AppState {
   threshold: number;
   supply: Array<[string, number]>;
   board: SerializedBoard;
+  accountSupply: boolean;
 }
 
 export function saveState(state: AppState, storage: Storage = globalThis.localStorage): void {
@@ -34,7 +35,8 @@ export function loadState(data: AspectData, storage: Storage = globalThis.localS
       if (typeof a !== 'string' || !data.universe.has(a)) return null;
       if (!Number.isInteger(nval) || (nval as number) < 0) return null; // spec §4.1
     }
-    return obj as AppState;
+    const accountSupply = typeof obj.accountSupply === 'boolean' ? obj.accountSupply : false;
+    return { ...obj, accountSupply } as AppState;
   } catch {
     return null; // corrupt -> reset to default
   }

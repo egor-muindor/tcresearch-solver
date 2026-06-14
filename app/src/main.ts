@@ -47,6 +47,7 @@ let solverClient: SolverClient | null = null;
 
 // mode: 'anchor' (clicks place ANCHORs) vs 'manual' (clicks place PLACED{locked:true})
 let placeMode: 'anchor' | 'manual' = 'anchor';
+let accountSupply = false;
 
 // --- build the shell DOM ---
 const appRoot = document.getElementById('app')!;
@@ -80,7 +81,7 @@ progressRow.appendChild(progressLabel);
 const cancelBtn = document.createElement('button');
 cancelBtn.type = 'button';
 cancelBtn.className = 'cancel-btn';
-cancelBtn.textContent = 'Отмена';
+cancelBtn.textContent = 'Cancel';
 cancelBtn.addEventListener('click', () => {
   solverClient?.cancel();
 });
@@ -107,13 +108,13 @@ modeSwitchRow.className = 'mode-switch-row';
 paletteContainer.appendChild(modeSwitchRow);
 
 const modeSwitchLabel = document.createElement('span');
-modeSwitchLabel.textContent = 'Режим: ';
+modeSwitchLabel.textContent = 'Mode:';
 modeSwitchLabel.className = 'mode-switch-label';
 modeSwitchRow.appendChild(modeSwitchLabel);
 
 const anchorModeBtn = document.createElement('button');
 anchorModeBtn.type = 'button';
-anchorModeBtn.textContent = 'Якорь';
+anchorModeBtn.textContent = 'Anchor';
 anchorModeBtn.className = 'mode-btn mode-btn--active';
 anchorModeBtn.addEventListener('click', () => {
   placeMode = 'anchor';
@@ -124,7 +125,7 @@ modeSwitchRow.appendChild(anchorModeBtn);
 
 const manualModeBtn = document.createElement('button');
 manualModeBtn.type = 'button';
-manualModeBtn.textContent = 'Ручной';
+manualModeBtn.textContent = 'Manual';
 manualModeBtn.className = 'mode-btn';
 manualModeBtn.addEventListener('click', () => {
   placeMode = 'manual';
@@ -160,6 +161,7 @@ function currentAppState(): AppState {
     threshold,
     supply: [...supply.entries()].filter(([, n]) => n > 0),
     board: serializeBoard(board),
+    accountSupply,
   };
 }
 
@@ -189,7 +191,7 @@ function showProgress(visible: boolean): void {
 function onProgress(p: Progress): void {
   // Progress.best is Cost | null; costLabel accepts Cost | undefined — coerce null -> undefined
   progressLabel.textContent =
-    `узлов: ${p.nodes} · ${costLabel(p.best ?? undefined)} · ${Math.round(p.timeMs)}мс · ${p.status}`;
+    'nodes: ' + p.nodes + ' - ' + costLabel(p.best ?? undefined) + ' - ' + Math.round(p.timeMs) + 'ms - ' + p.status;
 }
 
 function applyResult(result: SerializableResult): void {
@@ -202,7 +204,7 @@ function applyResult(result: SerializableResult): void {
     try {
       board = deserializeBoard(data, result.board);
     } catch {
-      showStatus('Ошибка десериализации доски');
+      showStatus('Board deserialization error');
     }
   }
 
@@ -236,7 +238,7 @@ function applyResult(result: SerializableResult): void {
 async function runSolve(): Promise<void> {
   const anchorCount = anchorCells(board).length;
   if (anchorCount > MAX_ANCHORS) {
-    showStatus(`Слишком много якорей: ${anchorCount} (макс. ${MAX_ANCHORS})`);
+    showStatus('Too many anchors: ' + anchorCount + ' (max ' + MAX_ANCHORS + ')');
     return;
   }
 
@@ -246,17 +248,22 @@ async function runSolve(): Promise<void> {
   const client = new SolverClient();
   solverClient = client;
 
+  const supplyReq = accountSupply
+    ? getSupplyArray()
+    : [...data.universe].map((a) => [a, 1_000_000] as [string, number]);
+  const thresholdReq = accountSupply ? threshold : 1;
+
   const req = {
     version: '4.2.2.0' as const,
     addons: [...addons],
     board: serializeBoard(board),
-    supply: getSupplyArray(),
-    threshold,
+    supply: supplyReq,
+    threshold: thresholdReq,
     budget: budgetForRadius(board.radius),
   };
 
   showProgress(true);
-  progressLabel.textContent = 'Запуск…';
+  progressLabel.textContent = 'Running...';
   showStatus('');
 
   try {
@@ -265,7 +272,8 @@ async function runSolve(): Promise<void> {
   } catch (err) {
     showProgress(false);
     solverClient = null;
-    showStatus(`Ошибка: ${err instanceof Error ? err.message : String(err)}`);
+    const message = err instanceof Error ? err.message : String(err);
+    showStatus('Error: ' + message);
   }
 }
 
@@ -276,7 +284,7 @@ const toolbar = new Toolbar(toolbarContainer, {
     const filled = filledCells(board);
     if (filled.length > 0) {
       const ok = confirm(
-        `Смена радиуса сбросит доску (${filled.length} заполненных клеток). Продолжить?`,
+        'Changing the radius will reset the board (' + filled.length + ' filled cells). Continue?',
       );
       if (!ok) return;
     }
@@ -295,7 +303,7 @@ const toolbar = new Toolbar(toolbarContainer, {
         // toggle-mode tools: active until user picks another
         break;
       case 'clear': {
-        const ok = confirm('Очистить все клетки?');
+        const ok = confirm('Clear all cells?');
         if (ok) {
           board = createBoard(board.radius);
           lastAllocation = null;
@@ -317,7 +325,7 @@ const toolbar = new Toolbar(toolbarContainer, {
       case 'validate': {
         const vr = validate(data, board);
         boardView.render(board, vr.errors);
-        showStatus(vr.valid ? 'Доска корректна' : `Ошибки: ${vr.errors.length}`);
+        showStatus(vr.valid ? 'Board is valid' : ('Errors: ' + vr.errors.length));
         activeTool = null;
         toolbar.setActiveTool(null);
         break;
@@ -416,7 +424,7 @@ const inventoryPanel = new InventoryPanel(inventoryContainer, data, {
   },
   onSubtractUsed: () => {
     if (!lastAllocation) {
-      showStatus('Нет данных об использовании');
+      showStatus('No usage data');
       return;
     }
     for (const [aspect, used] of lastAllocation.leafConsumption) {
@@ -430,7 +438,11 @@ const inventoryPanel = new InventoryPanel(inventoryContainer, data, {
       inventoryPanel.setSupply(aspect, next);
     }
     persist();
-    showStatus('Использованные аспекты вычтены');
+    showStatus('Used aspects subtracted');
+  },
+  onAccountChange: (enabled: boolean) => {
+    accountSupply = enabled;
+    persist();
   },
 });
 
@@ -442,6 +454,7 @@ function restoreState(): void {
     threshold = saved.threshold;
     addons = saved.addons;
     supply = new Map(saved.supply);
+    accountSupply = saved.accountSupply;
 
     // Sync threshold to panel
     inventoryPanel['thresholdInput'].value = String(threshold);
@@ -450,6 +463,9 @@ function restoreState(): void {
     for (const [aspect, count] of supply) {
       inventoryPanel.setSupply(aspect, count);
     }
+
+    // Sync account toggle
+    inventoryPanel.setAccountEnabled(accountSupply);
 
     // Sync toolbar radius: set the select value directly
     const radiusSelect = toolbarContainer.querySelector<HTMLSelectElement>('#toolbar-radius');
@@ -462,6 +478,8 @@ function restoreState(): void {
     threshold = DEFAULT_THRESHOLD;
     addons = [...DEFAULT_ADDONS];
     supply = new Map();
+    accountSupply = false;
+    inventoryPanel.setAccountEnabled(false);
 
     const radiusSelect = toolbarContainer.querySelector<HTMLSelectElement>('#toolbar-radius');
     if (radiusSelect) {
