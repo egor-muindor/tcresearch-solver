@@ -7,6 +7,7 @@ export interface InventoryCallbacks {
   onThresholdChange: (n: number) => void;
   onSubtractUsed: () => void;
   onAccountChange: (enabled: boolean) => void;
+  onHide?: () => void;
 }
 
 export class InventoryPanel {
@@ -28,6 +29,27 @@ export class InventoryPanel {
 
   private build(): void {
     this.container.innerHTML = '';
+
+    // Header row: title + Hide button
+    if (this.callbacks.onHide) {
+      const headerRow = document.createElement('div');
+      headerRow.className = 'inventory-panel__header';
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'inventory-panel__header-title';
+      titleEl.textContent = 'Inventory';
+      headerRow.appendChild(titleEl);
+
+      const hideBtn = document.createElement('button');
+      hideBtn.type = 'button';
+      hideBtn.className = 'inventory-panel__hide-btn';
+      hideBtn.textContent = 'Hide';
+      const onHide = this.callbacks.onHide;
+      hideBtn.addEventListener('click', () => { onHide(); });
+      headerRow.appendChild(hideBtn);
+
+      this.container.appendChild(headerRow);
+    }
 
     // Account for inventory toggle (top of panel, unchecked by default)
     const accountRow = document.createElement('div');

@@ -21,6 +21,9 @@ import type { SerializableResult } from './worker/protocol';
 import { SolverClient } from './worker/solverClient';
 import { saveState, loadState } from './state/persistence';
 import type { AppState } from './state/persistence';
+import { loadSettings, saveSettings } from './state/settings';
+import type { UiSettings } from './state/settings';
+import { SettingsPanel } from './ui/settings';
 import { BoardView } from './ui/boardView';
 import { AspectPalette } from './ui/aspectPalette';
 import { InventoryPanel } from './ui/inventoryPanel';
@@ -53,6 +56,11 @@ let solveToken = 0;
 // mode: 'anchor' (clicks place ANCHORs) vs 'manual' (clicks place PLACED{locked:true})
 let placeMode: 'anchor' | 'manual' = 'anchor';
 let accountSupply = false;
+
+// --- UI settings (sizing + inventory-hidden) ---
+let uiSettings: UiSettings = loadSettings();
+// settingsPanel is assigned later (after DOM exists), but referenced in onHide closure
+let settingsPanel!: SettingsPanel;
 
 // --- build the shell DOM ---
 const appRoot = document.getElementById('app')!;
@@ -142,6 +150,20 @@ const inventoryContainer = document.createElement('div');
 inventoryContainer.className = 'col-inventory';
 mainEl.appendChild(inventoryContainer);
 
+// Show-inventory button: pinned inside .col-board top-right, visible only when inventory is hidden
+const showInventoryBtn = document.createElement('button');
+showInventoryBtn.type = 'button';
+showInventoryBtn.className = 'show-inventory-btn';
+showInventoryBtn.textContent = 'Show inventory';
+showInventoryBtn.setAttribute('aria-label', 'Show inventory panel');
+showInventoryBtn.addEventListener('click', () => {
+  uiSettings = { ...uiSettings, inventoryHidden: false };
+  saveSettings(uiSettings);
+  applyInventoryHidden(false);
+  settingsPanel.update(uiSettings);
+});
+boardContainer.appendChild(showInventoryBtn);
+
 // Footer attribution (spec §8)
 const footerEl = document.createElement('footer');
 footerEl.className = 'app-footer';
@@ -153,6 +175,32 @@ footerEl.innerHTML =
   'Original sources: <a href="https://github.com/ythri/tcresearch" target="_blank" rel="noopener noreferrer">ythri/tcresearch</a> ' +
   '&middot; <a href="http://ythri.github.io/tcresearch/" target="_blank" rel="noopener noreferrer">ythri.github.io/tcresearch</a>';
 appRoot.appendChild(footerEl);
+
+// --- UI settings helpers (need DOM elements) ---
+
+function applyInventoryHidden(hidden: boolean): void {
+  if (hidden) {
+    inventoryContainer.classList.add('col-inventory--hidden');
+    showInventoryBtn.classList.add('show-inventory-btn--visible');
+    toolbarContainer.classList.add('toolbar-container--inv-hidden');
+  } else {
+    inventoryContainer.classList.remove('col-inventory--hidden');
+    showInventoryBtn.classList.remove('show-inventory-btn--visible');
+    toolbarContainer.classList.remove('toolbar-container--inv-hidden');
+  }
+}
+
+function applyUiSettings(s: UiSettings): void {
+  const root = document.documentElement;
+  root.style.setProperty('--palette-width', s.paletteWidth + 'px');
+  root.style.setProperty('--palette-scale', String(s.paletteScale));
+  root.style.setProperty('--inventory-width', s.inventoryWidth + 'px');
+  root.style.setProperty('--inventory-scale', String(s.inventoryScale));
+  applyInventoryHidden(s.inventoryHidden);
+}
+
+// Apply settings loaded at startup
+applyUiSettings(uiSettings);
 
 // --- persistence helpers ---
 function currentAppState(): AppState {
@@ -534,6 +582,12 @@ const inventoryPanel = new InventoryPanel(inventoryContainer, data, {
     invalidateSolve();
     persist();
   },
+  onHide: () => {
+    uiSettings = { ...uiSettings, inventoryHidden: true };
+    saveSettings(uiSettings);
+    applyInventoryHidden(true);
+    settingsPanel.update(uiSettings);
+  },
 });
 
 // --- board-tools row (Dead Hex / Erase / Clear) below the board SVG ---
@@ -661,3 +715,24 @@ helpBtn.addEventListener('click', () => {
 // Place inside .col-board (position:relative) so it anchors to the top-right
 // of the board area, staying left of the inventory column.
 boardContainer.appendChild(helpBtn);
+
+// --- Settings panel ---
+settingsPanel = new SettingsPanel(uiSettings, {
+  onChange: (newSettings: UiSettings) => {
+    uiSettings = { ...newSettings, inventoryHidden: uiSettings.inventoryHidden };
+    applyUiSettings(uiSettings);
+    saveSettings(uiSettings);
+  },
+});
+
+// Settings gear button (left of help button)
+const settingsBtn = document.createElement('button');
+settingsBtn.type = 'button';
+settingsBtn.className = 'settings-btn';
+settingsBtn.textContent = '⚙'; // ⚙ gear
+settingsBtn.setAttribute('aria-label', 'Settings');
+settingsBtn.addEventListener('click', () => {
+  settingsPanel.update(uiSettings);
+  settingsPanel.open();
+});
+boardContainer.appendChild(settingsBtn);

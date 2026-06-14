@@ -57,6 +57,12 @@
   --wood-border: #5c3a22;
   --wood-border-dark: #2b1c10;
   --muted: rgba(0,0,0,0.35);
+
+  /* ---- Menu sizing CSS variables (driven by settings panel) ---- */
+  --palette-width: 160px;
+  --palette-scale: 1;
+  --inventory-width: 230px;
+  --inventory-scale: 1;
 }
 
 /* ===== Wood texture mixin (used on many elements) ===== */
@@ -103,8 +109,8 @@ body {
   border-radius: 3px 3px 0 0;
   box-shadow: 0 2px 5px rgba(0,0,0,0.45), inset 0 -1px 0 rgba(200,151,58,0.25);
   padding: 4px 8px 3px;
-  /* leave room for the ? button in the top-right corner */
-  padding-right: 46px;
+  /* leave room for the ? and gear buttons in the top-right corner */
+  padding-right: 82px;
 }
 
 /* Toolbar internal styles */
@@ -308,7 +314,7 @@ body {
 
 /* ---- Palette column (left) ---- */
 .col-palette {
-  width: 140px;
+  width: var(--palette-width);
   flex-shrink: 0;
   /* PARCHMENT side panel */
   background-color: var(--parchment-base);
@@ -346,7 +352,7 @@ body {
 /* Aspect palette — DENSE NEI-style icon grid, packed to top */
 .aspect-palette {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(26px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(26px * var(--palette-scale)), 1fr));
   grid-auto-rows: min-content;
   row-gap: 2px;
   column-gap: 3px;
@@ -384,8 +390,8 @@ body {
 .aspect-palette__icon {
   flex-shrink: 0;
   image-rendering: pixelated;
-  width: 22px;
-  height: 22px;
+  width: calc(24px * var(--palette-scale));
+  height: calc(24px * var(--palette-scale));
 }
 
 .aspect-palette__label {
@@ -502,7 +508,7 @@ body {
 
 /* ---- Inventory column (right) ---- */
 .col-inventory {
-  width: 210px;
+  width: var(--inventory-width);
   flex-shrink: 0;
   /* PARCHMENT right panel */
   background-color: var(--parchment-base);
@@ -626,7 +632,7 @@ body {
 /* Inventory list — compact grid: icon + narrow number input */
 .inventory-panel__list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(50px * var(--inventory-scale)), 1fr));
   gap: 3px;
 }
 
@@ -646,8 +652,8 @@ body {
 .inventory-panel__icon {
   flex-shrink: 0;
   image-rendering: pixelated;
-  width: 20px;
-  height: 20px;
+  width: calc(20px * var(--inventory-scale));
+  height: calc(20px * var(--inventory-scale));
 }
 
 .inventory-panel__aspect-name {
@@ -746,6 +752,205 @@ body {
   box-shadow:
     inset 0 2px 4px rgba(0,0,0,0.7),
     0 1px 2px rgba(0,0,0,0.4);
+}
+
+/* ===== Settings button (absolute top-right of .col-board, left of help-btn) ===== */
+.settings-btn {
+  position: absolute;
+  top: 8px;
+  right: 46px;
+  z-index: 60;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #3b2410;
+  background-image: var(--wood-grain-svg), var(--wood-stripes);
+  background-blend-mode: overlay, overlay;
+  color: var(--gold-bright);
+  border: 2px solid var(--gold);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(200,151,58,0.3);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  transition: filter 0.1s, box-shadow 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.settings-btn:hover {
+  filter: brightness(1.25);
+  box-shadow:
+    0 3px 8px rgba(0,0,0,0.8),
+    inset 0 1px 0 rgba(240,192,80,0.5),
+    0 0 0 2px var(--gold-bright);
+}
+
+.settings-btn:active {
+  filter: brightness(0.9);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.7),
+    0 1px 2px rgba(0,0,0,0.4);
+}
+
+/* ===== Settings panel (inside modal-backdrop) ===== */
+.settings-panel {
+  min-width: 320px;
+  max-width: 420px;
+  width: 90%;
+  text-align: left;
+}
+
+.settings-panel__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(100,65,30,0.35);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.settings-panel__sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.settings-panel__slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-panel__slider-label {
+  font-size: 12px;
+  color: var(--ink-light);
+  font-style: italic;
+}
+
+.settings-panel__slider-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-panel__slider {
+  flex: 1;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.settings-panel__slider-value {
+  font-size: 12px;
+  color: var(--ink);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-panel__btn-row {
+  justify-content: flex-end;
+}
+
+/* ===== Inventory hidden state ===== */
+.col-inventory--hidden {
+  display: none;
+}
+
+/* Show-inventory button: pinned to right edge of the board area */
+.show-inventory-btn {
+  position: absolute;
+  top: 8px;
+  right: 82px;
+  z-index: 60;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background-color: #3b2410;
+  background-image: var(--wood-grain-svg), var(--wood-stripes);
+  background-blend-mode: overlay, overlay;
+  color: var(--gold-bright);
+  border: 1px solid var(--gold);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(200,151,58,0.3);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  transition: filter 0.1s, box-shadow 0.1s;
+  white-space: nowrap;
+  display: none; /* hidden by default; shown when inventory is hidden */
+}
+
+.show-inventory-btn--visible {
+  display: block;
+}
+
+.show-inventory-btn:hover {
+  filter: brightness(1.25);
+}
+
+.show-inventory-btn:active {
+  filter: brightness(0.9);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.7), 0 1px 2px rgba(0,0,0,0.4);
+}
+
+/* Inventory panel header row (title + hide button) */
+.inventory-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  min-height: 20px;
+}
+
+.inventory-panel__header-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  font-style: italic;
+}
+
+.inventory-panel__hide-btn {
+  background-color: #3b2410;
+  background-image: var(--wood-grain-svg), var(--wood-stripes);
+  background-blend-mode: overlay, overlay;
+  color: var(--wood-text);
+  border: 1px solid var(--wood-border-dark);
+  border-top-color: #7a5030;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(200,151,58,0.2),
+    inset 0 -1px 0 rgba(0,0,0,0.5),
+    0 1px 3px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  transition: box-shadow 0.1s, filter 0.1s;
+}
+
+.inventory-panel__hide-btn:hover {
+  filter: brightness(1.18);
+}
+
+.inventory-panel__hide-btn:active {
+  filter: brightness(0.9);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.7), 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Adjust toolbar-container right-padding when show-inventory button is also present */
+.toolbar-container--inv-hidden {
+  padding-right: 118px;
 }
 
 /* ===== Tour backdrop ===== */
