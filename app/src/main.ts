@@ -47,6 +47,7 @@ let activeTool: ToolName | null = null;
 let activeBrush: Aspect | null = null;
 let lastAllocation: AllocationResult | null = null;
 let solverClient: SolverClient | null = null;
+let solveToken = 0;
 
 // mode: 'anchor' (clicks place ANCHORs) vs 'manual' (clicks place PLACED{locked:true})
 let placeMode: 'anchor' | 'manual' = 'anchor';
@@ -173,6 +174,18 @@ function persist(): void {
 }
 
 // --- solver helpers ---
+
+/**
+ * Invalidate any in-flight solve so its result is discarded when it lands,
+ * and clear any stale allocation that might have been produced by a prior solve
+ * with different board/supply/accounting settings.
+ */
+function invalidateSolve(): void {
+  solveToken++;
+  lastAllocation = null;
+  inventoryPanel.clearAllocation();
+}
+
 function getSupplyArray(): Array<[string, number]> {
   return [...supply.entries()].filter(([, n]) => n > 0);
 }
@@ -245,8 +258,9 @@ async function runSolve(): Promise<void> {
     return;
   }
 
-  // Cancel any running solve first
+  // Cancel any running solve first and bump the token so stale results are dropped
   solverClient?.cancel();
+  const myToken = ++solveToken;
 
   const client = new SolverClient();
   solverClient = client;
@@ -271,8 +285,10 @@ async function runSolve(): Promise<void> {
 
   try {
     const result = await client.solve(req, onProgress);
+    if (myToken !== solveToken) return; // superseded by a newer solve or board mutation
     applyResult(result);
   } catch (err) {
+    if (myToken !== solveToken) return; // superseded — don't overwrite newer UI state
     showProgress(false);
     solverClient = null;
     const message = err instanceof Error ? err.message : String(err);
@@ -308,8 +324,7 @@ function handleTool(name: ToolName): void {
       const ok = confirm('Clear all cells?');
       if (ok) {
         board = createBoard(board.radius);
-        lastAllocation = null;
-        inventoryPanel.clearAllocation();
+        invalidateSolve();
         boardView.render(board);
         updateAnchorCap();
         persist();
@@ -342,6 +357,7 @@ function handleTool(name: ToolName): void {
           setState(board, cell.hex, { kind: 'PLACED', aspect: cell.aspect, locked: true });
         }
       }
+      invalidateSolve(); // clear stale allocation before re-solving
       activeTool = null;
       toolbar.setActiveTool(null);
       setBoardToolActive(null);
@@ -360,11 +376,13 @@ const toolbar = new Toolbar(toolbarContainer, {
       const ok = confirm(
         'Changing the radius will reset the board (' + filled.length + ' filled cells). Continue?',
       );
-      if (!ok) return;
+      if (!ok) {
+        toolbar.setRadius(board.radius); // revert the select to current radius
+        return;
+      }
     }
     board = createBoard(r);
-    lastAllocation = null;
-    inventoryPanel.clearAllocation();
+    invalidateSolve();
     boardView.render(board);
     updateAnchorCap();
     persist();
@@ -391,6 +409,7 @@ const boardView = new BoardView(boardContainer, data, (h) => {
     } else {
       setState(board, h, { kind: 'DEAD' });
     }
+    invalidateSolve();
     boardView.render(board);
     updateAnchorCap();
     persist();
@@ -399,6 +418,7 @@ const boardView = new BoardView(boardContainer, data, (h) => {
 
   if (activeTool === 'erase') {
     setState(board, h, { kind: 'EMPTY' });
+    invalidateSolve();
     boardView.render(board);
     updateAnchorCap();
     persist();
@@ -422,6 +442,7 @@ const boardView = new BoardView(boardContainer, data, (h) => {
         setState(board, h, { kind: 'PLACED', aspect: activeBrush, locked: true });
       }
     }
+    invalidateSolve();
     boardView.render(board);
     updateAnchorCap();
     persist();
@@ -459,6 +480,7 @@ boardView.setOnCellDrop((h: Hex, aspect: string) => {
   } else {
     setState(board, h, { kind: 'PLACED', aspect: resolvedAspect, locked: true });
   }
+  invalidateSolve();
   boardView.render(board);
   updateAnchorCap();
   persist();
@@ -471,10 +493,12 @@ const inventoryPanel = new InventoryPanel(inventoryContainer, data, {
     } else {
       supply.delete(aspect);
     }
+    invalidateSolve();
     persist();
   },
   onThresholdChange: (n: number) => {
     threshold = n;
+    invalidateSolve();
     persist();
   },
   onSubtractUsed: () => {
@@ -497,6 +521,7 @@ const inventoryPanel = new InventoryPanel(inventoryContainer, data, {
   },
   onAccountChange: (enabled: boolean) => {
     accountSupply = enabled;
+    invalidateSolve();
     persist();
   },
 });
@@ -559,11 +584,8 @@ function restoreState(): void {
     // Sync account toggle
     inventoryPanel.setAccountEnabled(accountSupply);
 
-    // Sync toolbar radius: set the select value directly
-    const radiusSelect = toolbarContainer.querySelector<HTMLSelectElement>('#toolbar-radius');
-    if (radiusSelect) {
-      radiusSelect.value = String(board.radius);
-    }
+    // Sync toolbar radius
+    toolbar.setRadius(board.radius);
   } else {
     // defaults: radius 2, empty board, threshold 50, empty supply
     board = createBoard(DEFAULT_RADIUS);
@@ -573,10 +595,7 @@ function restoreState(): void {
     accountSupply = false;
     inventoryPanel.setAccountEnabled(false);
 
-    const radiusSelect = toolbarContainer.querySelector<HTMLSelectElement>('#toolbar-radius');
-    if (radiusSelect) {
-      radiusSelect.value = String(DEFAULT_RADIUS);
-    }
+    toolbar.setRadius(DEFAULT_RADIUS);
   }
 }
 

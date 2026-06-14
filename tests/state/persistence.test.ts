@@ -70,4 +70,18 @@ describe('persistence', () => {
     const loaded = loadState(data, s as unknown as Storage);
     expect(loaded?.accountSupply).toBe(false);
   });
+
+  it('returns null when addons is missing', () => {
+    const s = new FakeStorage();
+    const base = sampleState();
+    const { addons: _omit, ...withoutAddons } = base;
+    s.setItem('gtnh-solver-state', JSON.stringify(withoutAddons));
+    expect(loadState(data, s as unknown as Storage)).toBeNull();
+  });
+
+  it('returns null when addons is not an array of strings', () => {
+    const s = new FakeStorage();
+    s.setItem('gtnh-solver-state', JSON.stringify({ ...sampleState(), addons: [1, 2, 3] }));
+    expect(loadState(data, s as unknown as Storage)).toBeNull();
+  });
 });

@@ -28,6 +28,7 @@ export function loadState(data: AspectData, storage: Storage = globalThis.localS
     deserializeBoard(data, obj.board); // throws if invalid -> caught -> null
     if (typeof obj.threshold !== 'number' || obj.threshold <= 0) return null;
     if (!Number.isInteger(obj.radius)) return null;
+    if (!Array.isArray(obj.addons) || !obj.addons.every((a) => typeof a === 'string')) return null;
     if (!Array.isArray(obj.supply)) return null;
     for (const e of obj.supply) {
       if (!Array.isArray(e) || e.length !== 2) return null;

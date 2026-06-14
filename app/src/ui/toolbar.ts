@@ -122,6 +122,11 @@ export class Toolbar {
     }
   }
 
+  /** Revert the radius select to a specific value (e.g. after a cancelled confirm). */
+  setRadius(r: number): void {
+    this.radiusSelect.value = String(r);
+  }
+
   /** Disable Auto Solve button and show the anchor-cap warning. */
   disableAutoSolve(disabled: boolean): void {
     const btn = this.toolBtns.get('autoSolve');
