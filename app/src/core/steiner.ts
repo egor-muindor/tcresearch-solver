@@ -5,6 +5,8 @@ export interface SteinerGraph {
   readonly terminals: readonly number[]; // distinct node ids
 }
 
+export const MAX_STEINER_TERMINALS = 16;
+
 /**
  * Exact minimum node-weighted Steiner tree weight spanning all terminals.
  * O(3^k n + 2^k n^2), k = terminals. Returns +Infinity if terminals can't be connected.
@@ -14,6 +16,9 @@ export function steinerNodeWeighted(g: SteinerGraph): number {
   const n = g.size;
   if (k === 0) return 0;
   if (k === 1) return g.weight(g.terminals[0]!);
+  if (k > MAX_STEINER_TERMINALS) {
+    throw new Error(`steinerNodeWeighted: too many terminals (${k}); exponential DP supports at most ${MAX_STEINER_TERMINALS}`);
+  }
 
   const full = (1 << k) - 1;
   const INF = Number.POSITIVE_INFINITY;

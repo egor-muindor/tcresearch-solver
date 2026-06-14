@@ -37,4 +37,11 @@ describe('Dreyfus–Wagner node-weighted Steiner', () => {
     const g: SteinerGraph = { size: 2, neighbors: (v) => adj[v]!, weight: () => 0, terminals: [0, 1] };
     expect(steinerNodeWeighted(g)).toBe(Number.POSITIVE_INFINITY);
   });
+
+  it('throws a clear error (not a cryptic RangeError) when terminal count exceeds the limit', () => {
+    const n = 31;
+    const adj: number[][] = Array.from({ length: n }, () => []);
+    const g: SteinerGraph = { size: n, neighbors: (v) => adj[v]!, weight: () => 0, terminals: Array.from({ length: 31 }, (_, i) => i) };
+    expect(() => steinerNodeWeighted(g)).toThrow(/too many terminals/);
+  });
 });
