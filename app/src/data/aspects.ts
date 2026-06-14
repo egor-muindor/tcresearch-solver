@@ -8,6 +8,8 @@ export interface AspectData {
   readonly universe: ReadonlySet<Aspect>;
   readonly translate: ReadonlyMap<Aspect, string>;
   readonly adjacency: ReadonlyMap<Aspect, ReadonlySet<Aspect>>;
+  /** Universe in Thaumcraft registration order: primals first, then compounds by mod tier order. */
+  readonly order: readonly Aspect[];
 }
 
 export class AspectDataError extends Error {
@@ -92,7 +94,13 @@ export function buildAspectData(opts: BuildOptions = {}): AspectData {
     link(k, c2);
   }
 
-  return { primals, combinations: combos, universe, translate, adjacency };
+  // Display order: primals (PRIMALS order), then compounds in registration/tier order
+  // (base Thaumcraft decl order, then addons), then any declared-only aspect as a fallback.
+  const order: Aspect[] = [...primals, ...combos.keys()];
+  const seen = new Set<Aspect>(order);
+  for (const a of universe) if (!seen.has(a)) { order.push(a); seen.add(a); }
+
+  return { primals, combinations: combos, universe, translate, adjacency, order };
 }
 
 function detectCycle(combos: ReadonlyMap<Aspect, readonly [Aspect, Aspect]>, primals: ReadonlySet<Aspect>): void {

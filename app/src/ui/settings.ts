@@ -104,6 +104,13 @@ export class SettingsPanel {
       }),
     );
 
+    sliders.appendChild(
+      this.buildToggle('Group palette (Primal / Compound)', 'groupAspects', this.current.groupAspects, (v) => {
+        this.current = { ...this.current, groupAspects: v };
+        this.callbacks.onChange({ ...this.current });
+      }),
+    );
+
     card.appendChild(sliders);
 
     // Close button
@@ -168,6 +175,32 @@ export class SettingsPanel {
     controls.appendChild(input);
     controls.appendChild(valueEl);
     row.appendChild(controls);
+
+    return row;
+  }
+
+  private buildToggle(
+    label: string,
+    key: string,
+    initial: boolean,
+    onChange: (v: boolean) => void,
+  ): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'settings-panel__slider-row settings-panel__toggle-row';
+
+    const labelEl = document.createElement('label');
+    labelEl.className = 'settings-panel__slider-label';
+    labelEl.htmlFor = 'settings-toggle-' + key;
+    labelEl.textContent = label;
+    row.appendChild(labelEl);
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = 'settings-toggle-' + key;
+    input.className = 'settings-panel__toggle';
+    input.checked = initial;
+    input.addEventListener('change', () => onChange(input.checked));
+    row.appendChild(input);
 
     return row;
   }

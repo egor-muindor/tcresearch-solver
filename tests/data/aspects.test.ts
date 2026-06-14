@@ -131,6 +131,28 @@ describe('GTNH 2.8.4 aspect additions (extracted from mods)', () => {
   });
 });
 
+describe('aspect display order (Thaumcraft registration order, not alphabetical)', () => {
+  const data = buildAspectData();
+
+  it('covers the whole universe exactly once', () => {
+    expect(data.order).toHaveLength(data.universe.size);
+    expect(new Set(data.order)).toEqual(new Set(data.universe));
+  });
+
+  it('lists the 6 primals first, in Thaumcraft declaration order', () => {
+    expect(data.order.slice(0, 6)).toEqual(['air', 'earth', 'fire', 'water', 'order', 'entropy']);
+  });
+
+  it('orders by mod tier, not alphabetically', () => {
+    const idx = (a: string) => data.order.indexOf(a);
+    // base compound (void) registered before any GregTech addon aspect
+    expect(idx('void')).toBeLessThan(idx('gloria'));
+    expect(idx('terminus')).toBeGreaterThan(idx('void'));
+    // 'void' precedes 'aura' here — something alphabetical order would never do
+    expect(idx('void')).toBeLessThan(idx('aura'));
+  });
+});
+
 describe('startup validation (fail loudly)', () => {
   it('throws AspectDataError naming the aspect on a self-referential recipe', () => {
     expect(() =>

@@ -17,6 +17,7 @@ function fullSettings(): UiSettings {
     inventoryWidth: 300,
     inventoryScale: 2,
     inventoryHidden: true,
+    groupAspects: false,
   };
 }
 
@@ -37,6 +38,15 @@ describe('settings persistence', () => {
     expect(loaded.inventoryWidth).toBe(300);
     expect(loaded.inventoryScale).toBe(2);
     expect(loaded.inventoryHidden).toBe(true);
+    expect(loaded.groupAspects).toBe(false);
+  });
+
+  it('defaults groupAspects to true for missing / non-boolean value', () => {
+    const s = new FakeStorage();
+    s.setItem(KEY, JSON.stringify({ groupAspects: 'nope' }));
+    expect(loadSettings(s as unknown as Storage).groupAspects).toBe(true);
+    s.setItem(KEY, JSON.stringify({}));
+    expect(loadSettings(s as unknown as Storage).groupAspects).toBe(true);
   });
 
   it('returns defaults on corrupt JSON', () => {

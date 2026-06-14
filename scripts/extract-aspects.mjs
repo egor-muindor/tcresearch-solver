@@ -9,7 +9,8 @@
 //
 // Requirements (dev machine only — never runs in the browser/CI):
 //   - the modpack jars in tmp/mods  (override with MODS_DIR=...)
-//   - a JDK on PATH (java, jar)      and  unzip, curl
+//   - a JDK on PATH (java, jar), plus unzip, curl
+//   - python3 + Pillow  (to tint the white aspect masks by their color)
 // CFR (decompiler) is fetched once into tmp/extract-work/cfr.jar.
 //
 // Usage:  node scripts/extract-aspects.mjs           # write raw.ts + icons
@@ -156,18 +157,30 @@ function parseResourceLocation(expr) {
   return null;
 }
 
+// Thaumcraft aspect icons are white luminance masks; the game tints each by the
+// aspect's color (2nd ctor arg). Parse `0xFFFF7E` / `5685248` to 6-digit hex.
+function parseColor(expr) {
+  const n = Number(expr.trim());
+  if (!Number.isFinite(n)) throw new Error(`unparseable color: ${expr}`);
+  return (n & 0xffffff).toString(16).padStart(6, '0');
+}
+
 // ── Base aspects (Thaumcraft's own Aspect class) ────────────────────────────
 function extractBase(thaumcraftJar) {
   const src = decompileClass(thaumcraftJar, 'thaumcraft/api/aspects/Aspect.class');
-  const aspects = [];        // { field, tag, components:[{kind,value}]|null }
-  const re = /public static final Aspect ([A-Z][A-Z0-9_]*) = new Aspect\("([a-z0-9_]+)",\s*[^,]+(?:,\s*new Aspect\[\]\{([^}]*)\})?/g;
-  let m;
+  const aspects = []; // { field, tag, color, components:[{kind,value}]|null }
+  const lineRe = /public static final Aspect ([A-Z][A-Z0-9_]*) = new Aspect\((.*?)\);/;
   for (const line of src.split('\n')) {
-    re.lastIndex = 0;
-    m = re.exec(line);
+    const m = line.match(lineRe);
     if (!m) continue;
-    const [, field, tag, arr] = m;
-    aspects.push({ field, tag, components: arr ? parseComponents(arr) : null });
+    const [, field, args] = m;
+    const head = args.match(/^"([a-z0-9_]+)"\s*,\s*([^,]+)/);
+    if (!head) continue;
+    const arr = args.match(/new Aspect\[\]\{([^}]*)\}/);
+    aspects.push({
+      field, tag: head[1], color: parseColor(head[2]),
+      components: arr ? parseComponents(arr[1]) : null,
+    });
   }
   if (aspects.length < 40) throw new Error(`base extraction looks wrong (${aspects.length} aspects)`);
   return aspects;
@@ -185,13 +198,13 @@ function extractAddons(jars, thaumcraftJar) {
       // X = new <AnyAspect>("tag", color, new Aspect[]{...}, new ResourceLocation(...))
       // The ResourceLocation may contain nested calls (gregtech `…name() + ".png"`),
       // so capture up to the closing `.png")`.
-      const re = /new [A-Za-z_]+\(\s*(?:this,\s*)?"([a-z0-9_]+)"\s*,\s*[^,]+,\s*new Aspect\[\]\{([^}]*)\}\s*,\s*(new ResourceLocation\([^;]*?\.png"\s*\))/g;
+      const re = /new [A-Za-z_]+\(\s*(?:this,\s*)?"([a-z0-9_]+)"\s*,\s*([^,]+?)\s*,\s*new Aspect\[\]\{([^}]*)\}\s*,\s*(new ResourceLocation\([^;]*?\.png"\s*\))/g;
       let m;
       while ((m = re.exec(src))) {
-        const [, tag, arr, rlExpr] = m;
+        const [, tag, color, arr, rlExpr] = m;
         const rl = parseResourceLocation(rlExpr);
         if (!rl) { log(`WARN: unparsed ResourceLocation for "${tag}" in ${jar}`); continue; }
-        found.push({ tag, components: parseComponents(arr), rl, modid: rl.modid });
+        found.push({ tag, color: parseColor(color), components: parseComponents(arr), rl, modid: rl.modid });
       }
     }
   }
@@ -230,7 +243,7 @@ function build() {
   for (const a of base) {
     const key = keyOf(a.tag);
     all.set(key, {
-      key, tag: a.tag, iconBase: a.tag, group: null,
+      key, tag: a.tag, iconBase: a.tag, group: null, color: a.color,
       primal: a.components === null, components: a.components,
       jar: thaumcraftJar, texPath: `assets/thaumcraft/textures/aspects/${a.tag}.png`,
     });
@@ -242,7 +255,7 @@ function build() {
     const key = keyOf(iconBase);
     const group = ADDON_GROUPS[a.modid]?.id ?? a.modid;
     all.set(key, {
-      key, tag: a.tag, iconBase, group,
+      key, tag: a.tag, iconBase, group, color: a.color,
       primal: false, components: a.components,
       jar: jars.find((j) => j.includes(modJarHint(a.modid))) || a.jar,
       texPath: `assets/${a.rl.modid}/${a.rl.path}`,
@@ -306,6 +319,9 @@ function emitRaw({ all }) {
   const translate = [...all.values()]
     .map((a) => `  ${a.key}: '${a.iconBase}',`).join('\n');
 
+  const colors = [...all.values()]
+    .map((a) => `  ${a.key}: 0x${a.color},`).join('\n');
+
   const ts = `// Aspect data for the Thaumcraft research minigame, extracted directly from the
 // GregTech: New Horizons modpack jars (Thaumcraft 4.2.3.5a + addons) by
 // scripts/extract-aspects.mjs. Do not edit by hand — re-run the extractor.
@@ -328,6 +344,13 @@ ${addonsTs}};
 export const TRANSLATE: Record<string, string> = {
 ${translate}
 };
+
+// english/latin key -> Thaumcraft tint color (RGB). The mod aspect textures are
+// white luminance masks; this is the color the game multiplies them by. Already
+// baked into aspects/color/*.png by the extractor; exported for reference/reuse.
+export const COLORS: Record<string, number> = {
+${colors}
+};
 `;
 
   if (CHECK_ONLY) {
@@ -338,20 +361,50 @@ ${translate}
   }
 }
 
-// ── Copy icons from the mods ────────────────────────────────────────────────
-// Each aspect's texture is piped straight out of its source jar to
-// aspects/color/<iconBase>.png — no third-party assets involved.
+// ── Copy + tint icons from the mods ─────────────────────────────────────────
+// Each aspect's white luminance texture is piped straight out of its source jar,
+// then tinted by the aspect's Thaumcraft color (texture.rgb × color, alpha kept)
+// — exactly how the game renders it. No third-party assets involved.
+// Tinting uses Python + Pillow (dev-only requirement, like the JDK/unzip above).
 function copyIcons({ all }) {
   if (CHECK_ONLY) { log('(--check) icons NOT copied'); return; }
   rmSync(ICON_OUT, { recursive: true, force: true });
   mkdirSync(ICON_OUT, { recursive: true });
+  const manifest = [];
   for (const a of all.values()) {
     const dest = join(ICON_OUT, `${a.iconBase}.png`);
     sh(`unzip -p ${q(a.jar)} ${q(a.texPath)} > ${q(dest)}`);
     const sz = sh(`wc -c < ${q(dest)}`).trim();
     if (parseInt(sz, 10) <= 0) throw new Error(`empty texture for ${a.key} (${a.texPath} in ${a.jar})`);
+    manifest.push({ path: dest, color: a.color });
   }
-  log(`wrote ${all.size} icons → ${ICON_OUT}`);
+  tintIcons(manifest);
+  log(`wrote + tinted ${all.size} icons → ${ICON_OUT}`);
+}
+
+// Multiply each white mask by its aspect color (preserving alpha), in place.
+function tintIcons(manifest) {
+  const py = join(WORK, 'tint-icons.py');
+  const manifestPath = join(WORK, 'tint-manifest.json');
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  writeFileSync(py, `import json, sys
+from PIL import Image, ImageChops
+items = json.load(open(sys.argv[1]))
+for it in items:
+    c = it["color"]
+    r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    img = Image.open(it["path"]).convert("RGBA")
+    alpha = img.getchannel("A")
+    solid = Image.new("RGB", img.size, (r, g, b))
+    out = ImageChops.multiply(img.convert("RGB"), solid).convert("RGBA")
+    out.putalpha(alpha)
+    out.save(it["path"])
+`);
+  try {
+    sh(`python3 ${q(py)} ${q(manifestPath)}`);
+  } catch (e) {
+    throw new Error(`icon tinting failed (need python3 + Pillow): ${e.message}`);
+  }
 }
 const sanitize = (s) => s.replace(/[^A-Za-z0-9._-]/g, '_');
 

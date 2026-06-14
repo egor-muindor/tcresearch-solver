@@ -6,6 +6,8 @@ export interface UiSettings {
   inventoryWidth: number;
   inventoryScale: number;
   inventoryHidden: boolean;
+  /** Split the palette into Primal / Compound groups (vs one flat list). */
+  groupAspects: boolean;
 }
 
 export const DEFAULT_SETTINGS: UiSettings = {
@@ -14,6 +16,7 @@ export const DEFAULT_SETTINGS: UiSettings = {
   inventoryWidth: 230,
   inventoryScale: 1,
   inventoryHidden: false,
+  groupAspects: true,
 };
 
 export function loadSettings(storage: Storage = globalThis.localStorage): UiSettings {
@@ -39,6 +42,7 @@ export function loadSettings(storage: Storage = globalThis.localStorage): UiSett
           ? obj.inventoryScale
           : DEFAULT_SETTINGS.inventoryScale,
       inventoryHidden: typeof obj.inventoryHidden === 'boolean' ? obj.inventoryHidden : DEFAULT_SETTINGS.inventoryHidden,
+      groupAspects: typeof obj.groupAspects === 'boolean' ? obj.groupAspects : DEFAULT_SETTINGS.groupAspects,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

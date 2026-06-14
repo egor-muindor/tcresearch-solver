@@ -406,6 +406,22 @@ body {
   display: none; /* hidden in compact grid; NEI tooltip serves as label */
 }
 
+/* Primal / Compound group headers (span the full grid row) */
+.aspect-palette__group-label {
+  grid-column: 1 / -1;
+  margin: 4px 0 1px;
+  padding-bottom: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(100,65,30,0.45);
+}
+.aspect-palette__group-label:first-child {
+  margin-top: 0;
+}
+
 /* ===== NEI hover tooltip ===== */
 .nei-tooltip {
   position: fixed;
@@ -856,6 +872,21 @@ body {
   flex: 1;
   accent-color: var(--gold);
   cursor: pointer;
+}
+
+.settings-panel__toggle-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-panel__toggle {
+  accent-color: var(--gold);
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .settings-panel__slider-value {

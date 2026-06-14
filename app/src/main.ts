@@ -170,10 +170,9 @@ footerEl.className = 'app-footer';
 footerEl.innerHTML =
   '<a href="https://github.com/egor-muindor/tcresearch-solver" target="_blank" rel="noopener noreferrer">Source code</a>' +
   ' &middot; ' +
-  'Aspect data &amp; icons &copy; original authors, ' +
-  '<a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC-BY-4.0</a>. ' +
-  'Original sources: <a href="https://github.com/ythri/tcresearch" target="_blank" rel="noopener noreferrer">ythri/tcresearch</a> ' +
-  '&middot; <a href="http://ythri.github.io/tcresearch/" target="_blank" rel="noopener noreferrer">ythri.github.io/tcresearch</a>';
+  'Aspect data &amp; icons extracted from the ' +
+  '<a href="https://github.com/GTNewHorizons" target="_blank" rel="noopener noreferrer">GregTech: New Horizons</a> ' +
+  'modpack &mdash; &copy; their respective mod authors.';
 appRoot.appendChild(footerEl);
 
 // --- UI settings helpers (need DOM elements) ---
@@ -507,15 +506,20 @@ const boardView = new BoardView(boardContainer, data, (h) => {
   }
 });
 
-const palette = new AspectPalette(paletteContainer, data, (aspect: Aspect) => {
-  activeBrush = aspect;
-  // Deactivate dead/erase mode when picking an aspect
-  if (activeTool === 'deadHex' || activeTool === 'erase') {
-    activeTool = null;
-    toolbar.setActiveTool(null);
-    setBoardToolActive(null);
-  }
-});
+const palette = new AspectPalette(
+  paletteContainer,
+  data,
+  (aspect: Aspect) => {
+    activeBrush = aspect;
+    // Deactivate dead/erase mode when picking an aspect
+    if (activeTool === 'deadHex' || activeTool === 'erase') {
+      activeTool = null;
+      toolbar.setActiveTool(null);
+      setBoardToolActive(null);
+    }
+  },
+  uiSettings.groupAspects,
+);
 
 // Wire up drag-drop: treat drop as selecting that brush + clicking that cell.
 boardView.setOnCellDrop((h: Hex, aspect: string) => {
@@ -721,6 +725,7 @@ settingsPanel = new SettingsPanel(uiSettings, {
   onChange: (newSettings: UiSettings) => {
     uiSettings = { ...newSettings, inventoryHidden: uiSettings.inventoryHidden };
     applyUiSettings(uiSettings);
+    palette.setGrouped(uiSettings.groupAspects);
     saveSettings(uiSettings);
   },
 });
