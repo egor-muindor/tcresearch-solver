@@ -89,20 +89,22 @@ body {
   background-size: 200px 200px, 100% 100%;
 }
 
-/* ===== Header / Toolbar ===== */
-.app-header {
-  /* Wood header */
-  background-color: #2b1c10;
-  background-image: var(--wood-grain-svg), var(--wood-stripes);
-  background-blend-mode: overlay, overlay;
-  border-bottom: 3px solid #1a0e06;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.6), inset 0 -1px 0 rgba(200,151,58,0.3);
-  padding: 5px 10px 4px;
-  flex-shrink: 0;
-}
+/* .app-header removed — toolbar now lives inside .col-board */
 
 .toolbar-container {
   /* Toolbar component adds its own class */
+  flex-shrink: 0;
+  width: 100%;
+  /* Wood strip across the top of the board area */
+  background-color: #2b1c10;
+  background-image: var(--wood-grain-svg), var(--wood-stripes);
+  background-blend-mode: overlay, overlay;
+  border-bottom: 2px solid #1a0e06;
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.45), inset 0 -1px 0 rgba(200,151,58,0.25);
+  padding: 4px 8px 3px;
+  /* leave room for the ? button in the top-right corner */
+  padding-right: 46px;
 }
 
 /* Toolbar internal styles */
@@ -225,35 +227,74 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 0 2px;
-  margin-top: 3px;
+  padding: 3px 6px 2px;
+  flex-shrink: 0;
+  width: 100%;
 }
 
+/* ---- Magic arcane progress bar ---- */
 .progress-bar {
   flex: 1;
-  height: 7px;
-  accent-color: var(--gold);
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(130, 60, 200, 0.55);
+  background: linear-gradient(
+    90deg,
+    #1a0833 0%,
+    #6b21a8 30%,
+    #a855f7 55%,
+    #c084fc 70%,
+    #6b21a8 85%,
+    #1a0833 100%
+  );
+  background-size: 200% 100%;
+  animation: arcane-shimmer 1.6s linear infinite;
+  box-shadow:
+    0 0 8px rgba(168, 85, 247, 0.7),
+    0 0 18px rgba(168, 85, 247, 0.35),
+    inset 0 1px 0 rgba(220, 180, 255, 0.25);
+}
+
+@keyframes arcane-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .progress-label {
   font-size: 11px;
-  color: var(--gold);
+  color: #c084fc;
   min-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  text-shadow: 0 0 6px rgba(168, 85, 247, 0.7), 0 1px 2px rgba(0,0,0,0.9);
 }
 
-/* ===== Status bar ===== */
-.status-bar {
-  margin-top: 3px;
-  padding: 2px 0;
+/* ===== Status popup (floating overlay above board) ===== */
+.status-popup {
+  position: absolute;
+  top: 72px; /* below toolbar + progress row */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  /* Parchment card */
+  background-color: var(--parchment-base);
+  background-image: var(--parchment-noise-svg), var(--parchment-vignette);
+  background-blend-mode: multiply, normal;
+  background-size: 200px 200px, 100% 100%;
+  border: 2px solid var(--wood-border-dark);
+  border-top-color: var(--gold);
+  border-radius: 5px;
+  padding: 5px 14px;
   font-size: 12px;
-  color: var(--gold-bright);
   font-weight: 600;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+  white-space: nowrap;
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(200,151,58,0.22);
+  pointer-events: none;
 }
 
 /* ===== 3-column main ===== */
@@ -302,11 +343,14 @@ body {
   font-size: 11px;
 }
 
-/* Aspect palette — DENSE NEI-style icon grid */
+/* Aspect palette — DENSE NEI-style icon grid, packed to top */
 .aspect-palette {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(26px, 1fr));
-  gap: 1px;
+  grid-auto-rows: min-content;
+  row-gap: 2px;
+  column-gap: 3px;
+  align-content: start;
 }
 
 .aspect-palette__item {
@@ -317,7 +361,7 @@ body {
   background: rgba(180,140,80,0.18);
   border: 1px solid rgba(100,65,30,0.4);
   border-radius: 1px;
-  padding: 1px;
+  padding: 0;
   cursor: pointer;
   width: 100%;
   aspect-ratio: 1;
@@ -372,15 +416,23 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* toolbar + progress at top; board SVG fills remaining space */
   /* PARCHMENT board area */
   background-color: #d5c090;
   background-image: var(--parchment-noise-svg), radial-gradient(ellipse at center, #e4d09e 45%, #b89c60 100%);
   background-blend-mode: multiply, normal;
   background-size: 200px 200px, 100% 100%;
-  padding: 12px;
+  padding: 8px 12px 8px;
   overflow: hidden; /* no scroll — board SVG is sized to fit */
   position: relative;
+}
+
+/* Board SVG wrapper: takes all remaining vertical space and centers the SVG */
+.col-board > svg {
+  flex: 1;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Subtle inner shadow to look like recessed parchment on a wood frame */
@@ -651,12 +703,12 @@ body {
   text-decoration: underline;
 }
 
-/* ===== Help button (fixed top-right) ===== */
+/* ===== Help button (absolute top-right of .col-board) ===== */
 .help-btn {
-  position: fixed;
-  top: 10px;
-  right: 12px;
-  z-index: 900;
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 60;
   width: 30px;
   height: 30px;
   border-radius: 50%;

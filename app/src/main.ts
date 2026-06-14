@@ -58,46 +58,6 @@ let accountSupply = false;
 const appRoot = document.getElementById('app')!;
 appRoot.innerHTML = '';
 
-// Header / toolbar
-const headerEl = document.createElement('header');
-headerEl.className = 'app-header';
-appRoot.appendChild(headerEl);
-
-const toolbarContainer = document.createElement('div');
-toolbarContainer.className = 'toolbar-container';
-headerEl.appendChild(toolbarContainer);
-
-// Progress bar row (hidden by default)
-const progressRow = document.createElement('div');
-progressRow.className = 'progress-row';
-progressRow.style.display = 'none';
-headerEl.appendChild(progressRow);
-
-const progressBar = document.createElement('progress');
-progressBar.className = 'progress-bar';
-progressBar.removeAttribute('value'); // indeterminate
-progressRow.appendChild(progressBar);
-
-const progressLabel = document.createElement('span');
-progressLabel.className = 'progress-label';
-progressLabel.textContent = '';
-progressRow.appendChild(progressLabel);
-
-const cancelBtn = document.createElement('button');
-cancelBtn.type = 'button';
-cancelBtn.className = 'cancel-btn';
-cancelBtn.textContent = 'Cancel';
-cancelBtn.addEventListener('click', () => {
-  solverClient?.cancel();
-});
-progressRow.appendChild(cancelBtn);
-
-// Status bar
-const statusBar = document.createElement('div');
-statusBar.className = 'status-bar';
-statusBar.style.display = 'none';
-headerEl.appendChild(statusBar);
-
 // Main 3-column layout
 const mainEl = document.createElement('main');
 mainEl.className = 'app-main';
@@ -142,6 +102,41 @@ modeSwitchRow.appendChild(manualModeBtn);
 const boardContainer = document.createElement('div');
 boardContainer.className = 'col-board';
 mainEl.appendChild(boardContainer);
+
+// Toolbar above board (inside .col-board)
+const toolbarContainer = document.createElement('div');
+toolbarContainer.className = 'toolbar-container';
+boardContainer.appendChild(toolbarContainer);
+
+// Progress bar row (hidden by default) — inside .col-board, below toolbar
+const progressRow = document.createElement('div');
+progressRow.className = 'progress-row';
+progressRow.style.display = 'none';
+boardContainer.appendChild(progressRow);
+
+const progressBar = document.createElement('div');
+progressBar.className = 'progress-bar';
+progressRow.appendChild(progressBar);
+
+const progressLabel = document.createElement('span');
+progressLabel.className = 'progress-label';
+progressLabel.textContent = '';
+progressRow.appendChild(progressLabel);
+
+const cancelBtn = document.createElement('button');
+cancelBtn.type = 'button';
+cancelBtn.className = 'cancel-btn';
+cancelBtn.textContent = 'Cancel';
+cancelBtn.addEventListener('click', () => {
+  solverClient?.cancel();
+});
+progressRow.appendChild(cancelBtn);
+
+// Status popup (floating overlay, not in flow)
+const statusBar = document.createElement('div');
+statusBar.className = 'status-popup';
+statusBar.style.display = 'none';
+boardContainer.appendChild(statusBar);
 
 const inventoryContainer = document.createElement('div');
 inventoryContainer.className = 'col-inventory';
@@ -254,6 +249,8 @@ function applyResult(result: SerializableResult): void {
   persist();
 }
 
+const MIN_PROGRESS_MS = 1000;
+
 async function runSolve(): Promise<void> {
   const anchorCount = anchorCells(board).length;
   if (anchorCount > MAX_ANCHORS) {
@@ -286,8 +283,18 @@ async function runSolve(): Promise<void> {
   progressLabel.textContent = 'Running...';
   showStatus('');
 
+  const solveStart = Date.now();
+
   try {
     const result = await client.solve(req, onProgress);
+    // Enforce minimum visible duration (skip on CANCELLED for instant cancel feel)
+    if (result.status !== 'CANCELLED') {
+      const elapsed = Date.now() - solveStart;
+      const remaining = MIN_PROGRESS_MS - elapsed;
+      if (remaining > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+      }
+    }
     if (myToken !== solveToken) return; // superseded by a newer solve or board mutation
     applyResult(result);
   } catch (err) {
@@ -651,4 +658,6 @@ helpBtn.setAttribute('aria-label', 'Help / guided tour');
 helpBtn.addEventListener('click', () => {
   startTour(TOUR_STEPS);
 });
-document.body.appendChild(helpBtn);
+// Place inside .col-board (position:relative) so it anchors to the top-right
+// of the board area, staying left of the inventory column.
+boardContainer.appendChild(helpBtn);
