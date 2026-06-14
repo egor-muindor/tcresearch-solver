@@ -144,12 +144,16 @@ export function startTour(steps: TourStep[]): void {
     });
     btnRow.appendChild(nextBtn);
 
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'tour-card__btn tour-card__btn--close';
-    closeBtn.textContent = 'Close';
-    closeBtn.addEventListener('click', close);
-    btnRow.appendChild(closeBtn);
+    // On the last step the primary "Done" button already closes the tour,
+    // so the separate Close button would be redundant — omit it there.
+    if (!isLast) {
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'tour-card__btn tour-card__btn--close';
+      closeBtn.textContent = 'Close';
+      closeBtn.addEventListener('click', close);
+      btnRow.appendChild(closeBtn);
+    }
 
     card.appendChild(btnRow);
 

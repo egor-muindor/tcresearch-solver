@@ -525,9 +525,11 @@ body {
   background-size: 200px 200px, 100% 100%;
   border-left: 4px solid var(--wood-border-dark);
   box-shadow: inset 2px 0 6px rgba(0,0,0,0.25), -2px 0 4px rgba(0,0,0,0.4);
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 6px 5px 4px;
   color: var(--parchment-text);
+  transition: width 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-left-width 0.3s ease;
 }
 
 /* Inventory panel component */
@@ -869,8 +871,15 @@ body {
 }
 
 /* ===== Inventory hidden state ===== */
-.col-inventory--hidden {
-  display: none;
+/* Animated collapse instead of display:none so hide/show slides smoothly. */
+.col-inventory.col-inventory--hidden {
+  width: 0;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-left-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Show-inventory button: pinned to right edge of the board area */
