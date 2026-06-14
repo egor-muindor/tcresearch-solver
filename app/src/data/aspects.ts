@@ -24,27 +24,34 @@ export interface BuildOptions {
   addons?: readonly string[];
   /** Test-only: replace the entire combinations map (bypasses version/addons). */
   overrideCombinations?: Record<string, [Aspect, Aspect]>;
-  /** Test-only: supply latin names for synthetic aspects (else identity in override mode). */
+  /** Test-only: supply latin names for synthetic aspects (required: override-mode aspects have no TRANSLATE entry). */
   overrideTranslate?: Record<string, string>;
+  /** Test-only: aspects that join the universe even without a recipe (simulates an addon `aspects[]` entry that is component-only, spec §2.1). */
+  overrideDeclaredAspects?: readonly string[];
 }
 
 export function buildAspectData(opts: BuildOptions = {}): AspectData {
   const primals = new Set<Aspect>(PRIMALS);
 
   const combos = new Map<Aspect, readonly [Aspect, Aspect]>();
+  // Spec §2.1: the universe explicitly unions addon-declared aspects, not only recipe keys/components.
+  const declared = new Set<Aspect>();
   if (opts.overrideCombinations) {
     for (const [k, v] of Object.entries(opts.overrideCombinations)) combos.set(k, v);
+    for (const a of opts.overrideDeclaredAspects ?? []) declared.add(a);
   } else {
     for (const [k, v] of Object.entries(COMBINATIONS_4_2_2_0)) combos.set(k, v);
     for (const id of opts.addons ?? ['fm', 'mb', 'gt']) {
       const addon = ADDONS[id];
       if (!addon) throw new AspectDataError(`unknown addon '${id}'`);
+      for (const a of addon.aspects) declared.add(a);
       for (const [k, v] of Object.entries(addon.combinations)) combos.set(k, v);
     }
   }
 
-  // Universe = primals ∪ compound keys ∪ all components.
+  // Universe = primals ∪ declared addon aspects ∪ compound keys ∪ all components (spec §2.1).
   const universe = new Set<Aspect>(primals);
+  for (const a of declared) universe.add(a);
   for (const [k, [c1, c2]] of combos) {
     universe.add(k);
     universe.add(c1);

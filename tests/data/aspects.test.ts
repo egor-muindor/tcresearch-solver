@@ -77,6 +77,16 @@ describe('buildAspectData (defaults: 4.2.2.0 + fm/mb/gt)', () => {
       expect(existsSync(resolve(root, 'aspects/color', `${latin}.png`))).toBe(true);
     }
   });
+
+  it('includes a declared addon-style aspect that has no recipe of its own (spec §2.1 union)', () => {
+    const d = buildAspectData({
+      overrideCombinations: { foo: ['air', 'fire'] },
+      overrideDeclaredAspects: ['standalone'],
+      overrideTranslate: { foo: 'foo', standalone: 'standalone' },
+      addons: [],
+    });
+    expect(d.universe.has('standalone')).toBe(true);
+  });
 });
 
 describe('startup validation (fail loudly)', () => {
