@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { buildAspectData } from '../../app/src/data/aspects';
 import { makeInventory, DEFAULT_THRESHOLD } from '../../app/src/core/inventory';
 import { createBoard, setState, validate, getState } from '../../app/src/core/board';
+import { boardCells, hexKey } from '../../app/src/core/hex';
 import { solve, type SolveResult } from '../../app/src/core/solver';
 
 const data = buildAspectData();
@@ -93,9 +94,39 @@ describe('solver invariants (spec §5)', () => {
     expect(['UNSAT_PROVEN', 'INVALID_INPUT']).toContain(r.status);
   });
 
-  it('allocator budget exhaustion blocks proof: degrades to FEASIBLE_TIMEOUT/UNKNOWN_TIMEOUT', () => {
-    const r = solve({ data, board: twoAnchorBoard(), inventory: rich, budget, allocBudget: { maxNodes: 1 } });
+  it('allocator budget exhaustion blocks the proof on an exhaustible instance (=> UNKNOWN_TIMEOUT, not INFEASIBLE_INVENTORY)', () => {
+    // Tiny EXHAUSTIBLE instance: air & entropy with only (1,0) free (everything else DEAD), so the full
+    // include/exclude search is a handful of nodes. The unique bridge `void` forms a complete board, but
+    // allocBudget {maxNodes:1} makes allocate return 'unknown' for it. anyUnknownCompetitive must then
+    // BLOCK the proof: the search is exhaustive, yet the status is UNKNOWN_TIMEOUT (not OPTIMAL/INFEASIBLE).
+    const b = createBoard(2);
+    setState(b, { q: 0, r: 0 }, { kind: 'ANCHOR', aspect: 'air' });
+    setState(b, { q: 2, r: 0 }, { kind: 'ANCHOR', aspect: 'entropy' });
+    for (const h of boardCells(2)) {
+      const k = hexKey(h);
+      if (k === '0,0' || k === '2,0' || k === '1,0') continue;
+      setState(b, h, { kind: 'DEAD' });
+    }
+    const r = solve({ data, board: b, inventory: rich, budget, allocBudget: { maxNodes: 1 } });
     expect(r.status).not.toBe('OPTIMAL');
     expect(r.status).not.toBe('INFEASIBLE_INVENTORY');
+    expect(r.status).toBe('UNKNOWN_TIMEOUT');
+  });
+
+  it('beam mode explores its retained candidates (no early abort) and still finds a valid connected board', () => {
+    // (0,1) is adjacent only to air => many valid candidates; beam:2 truncates the fan-out there (sets the
+    // truncation status flag). The fix must NOT let that flag abort the whole DFS: after excluding (0,1) the
+    // search must still reach (1,0) and place the unique bridge `void`, yielding a valid connected board.
+    const b = createBoard(2);
+    setState(b, { q: 0, r: 0 }, { kind: 'ANCHOR', aspect: 'air' });
+    setState(b, { q: 2, r: 0 }, { kind: 'ANCHOR', aspect: 'entropy' });
+    for (const h of boardCells(2)) {
+      const k = hexKey(h);
+      if (k === '0,0' || k === '2,0' || k === '1,0' || k === '0,1') continue;
+      setState(b, h, { kind: 'DEAD' });
+    }
+    const r = solve({ data, board: b, inventory: rich, budget: { maxNodes: 100_000, maxTimeMs: 5_000, beam: 2 } });
+    expect(r.board).toBeDefined();
+    expect(validate(data, r.board!).valid).toBe(true);
   });
 });

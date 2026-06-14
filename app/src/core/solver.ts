@@ -195,15 +195,11 @@ export function solve(opts: SolveOptions): SolveResult {
         incumbent = { board: cloneBoard(work), cost, alloc };
       }
     } else if (alloc.feasible === 'unknown') {
-      // could this candidate beat the incumbent? compare its lower-bound g to incumbent
+      // Allocator budget exhausted for this board: feasibility unproven. Record that a competitive
+      // unknown exists — this BLOCKS proof statuses (OPTIMAL/INFEASIBLE_INVENTORY degrade to *_TIMEOUT),
+      // but DO NOT stop the search: continuing may still find a feasible incumbent (anytime, invariant 3).
       if (!incumbent || lessThan(gcost, incumbent.cost)) {
         anyUnknownCompetitive = true;
-        // Proof is now blocked (anyUnknownCompetitive degrades status to *_TIMEOUT).
-        // Stop searching: continuing can only find a feasible incumbent (improving UNKNOWN_TIMEOUT
-        // to FEASIBLE_TIMEOUT), but if allocBudget is exhausted for every board, no incumbent is
-        // reachable anyway. Treating this as a truncation is correct — the result is *_TIMEOUT
-        // regardless, and stopping early avoids O(2^n) wasted work.
-        truncated = true;
       }
     } // feasible === false => discard entirely
   };
@@ -211,7 +207,6 @@ export function solve(opts: SolveOptions): SolveResult {
   // DFS with include/exclude branching (complete); periodic cancel/budget/progress checks.
   const dfs = (): void => {
     if (cancelled) return;
-    if (truncated) return; // truncated by budget, beam, or anyUnknownCompetitive (proof blocked)
     if (nodes >= budget.maxNodes) { truncated = true; return; }
     if ((nodes & 1023) === 0) {
       if (opts.shouldCancel?.()) { cancelled = true; return; }
