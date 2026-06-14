@@ -1,5 +1,6 @@
 import type { Aspect, AspectData } from '../data/aspects';
 import { iconUrl } from './icons';
+import { showTooltip, repositionTooltip, hideTooltip } from './tooltip';
 
 export class AspectPalette {
   private activeBrush: Aspect | null = null;
@@ -29,14 +30,14 @@ export class AspectPalette {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'aspect-palette__item';
-      item.title = latin;
+      // No title attribute — custom NEI tooltip is used instead
       item.setAttribute('aria-label', latin);
 
       const img = document.createElement('img');
       img.src = iconUrl(this.data, aspect);
       img.alt = latin;
-      img.width = 24;
-      img.height = 24;
+      img.width = 22;
+      img.height = 22;
       img.className = 'aspect-palette__icon';
 
       item.appendChild(img);
@@ -44,6 +45,16 @@ export class AspectPalette {
       item.addEventListener('click', () => {
         this.setActiveBrush(aspect);
         this.onAspectPick(aspect);
+      });
+
+      item.addEventListener('mouseenter', (e: MouseEvent) => {
+        showTooltip(latin, e.clientX, e.clientY);
+      });
+      item.addEventListener('mousemove', (e: MouseEvent) => {
+        repositionTooltip(e.clientX, e.clientY);
+      });
+      item.addEventListener('mouseleave', () => {
+        hideTooltip();
       });
 
       this.itemEls.set(aspect, item);

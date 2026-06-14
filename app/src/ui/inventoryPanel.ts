@@ -138,7 +138,13 @@ export class InventoryPanel {
 
       this.supplyInputs.set(aspect, input);
 
+      const nameLabel = document.createElement('div');
+      nameLabel.className = 'inventory-panel__aspect-name';
+      nameLabel.textContent = latin;
+      nameLabel.title = latin;
+
       row.appendChild(img);
+      row.appendChild(nameLabel);
       row.appendChild(input);
       listEl.appendChild(row);
     }

@@ -277,6 +277,77 @@ async function runSolve(): Promise<void> {
   }
 }
 
+// --- board-tools active-state management ---
+let boardToolsBtns = new Map<ToolName, HTMLButtonElement>();
+
+function setBoardToolActive(name: ToolName | null): void {
+  for (const [toolName, btn] of boardToolsBtns) {
+    if (toolName === name) {
+      btn.classList.add('board-tools__btn--active');
+    } else {
+      btn.classList.remove('board-tools__btn--active');
+    }
+  }
+}
+
+// --- core tool handler (factored so toolbar + board-tools row both call it) ---
+function handleTool(name: ToolName): void {
+  activeTool = name;
+  switch (name) {
+    case 'deadHex':
+    case 'erase':
+      // toggle-mode tools: active until user picks another
+      // highlight the board-tools button
+      setBoardToolActive(name);
+      toolbar.setActiveTool(null); // toolbar no longer has these
+      break;
+    case 'clear': {
+      const ok = confirm('Clear all cells?');
+      if (ok) {
+        board = createBoard(board.radius);
+        lastAllocation = null;
+        inventoryPanel.clearAllocation();
+        boardView.render(board);
+        updateAnchorCap();
+        persist();
+      }
+      // Clear is an action, reset active tool
+      activeTool = null;
+      toolbar.setActiveTool(null);
+      setBoardToolActive(null);
+      break;
+    }
+    case 'autoSolve':
+      activeTool = null;
+      toolbar.setActiveTool(null);
+      setBoardToolActive(null);
+      void runSolve();
+      break;
+    case 'validate': {
+      const vr = validate(data, board);
+      boardView.render(board, vr.errors);
+      showStatus(vr.valid ? 'Board is valid' : ('Errors: ' + vr.errors.length));
+      activeTool = null;
+      toolbar.setActiveTool(null);
+      setBoardToolActive(null);
+      break;
+    }
+    case 'continueSolve': {
+      // Mark all current manual PLACED as locked:true
+      for (const cell of filledCells(board)) {
+        if (!cell.isAnchor) {
+          setState(board, cell.hex, { kind: 'PLACED', aspect: cell.aspect, locked: true });
+        }
+      }
+      activeTool = null;
+      toolbar.setActiveTool(null);
+      setBoardToolActive(null);
+      void runSolve();
+      break;
+    }
+  }
+}
+
 // --- UI component callbacks ---
 
 const toolbar = new Toolbar(toolbarContainer, {
@@ -296,53 +367,7 @@ const toolbar = new Toolbar(toolbarContainer, {
     persist();
   },
   onTool: (name: ToolName) => {
-    activeTool = name;
-    switch (name) {
-      case 'deadHex':
-      case 'erase':
-        // toggle-mode tools: active until user picks another
-        break;
-      case 'clear': {
-        const ok = confirm('Clear all cells?');
-        if (ok) {
-          board = createBoard(board.radius);
-          lastAllocation = null;
-          inventoryPanel.clearAllocation();
-          boardView.render(board);
-          updateAnchorCap();
-          persist();
-        }
-        // Clear is an action, reset active tool
-        activeTool = null;
-        toolbar.setActiveTool(null);
-        break;
-      }
-      case 'autoSolve':
-        activeTool = null;
-        toolbar.setActiveTool(null);
-        void runSolve();
-        break;
-      case 'validate': {
-        const vr = validate(data, board);
-        boardView.render(board, vr.errors);
-        showStatus(vr.valid ? 'Board is valid' : ('Errors: ' + vr.errors.length));
-        activeTool = null;
-        toolbar.setActiveTool(null);
-        break;
-      }
-      case 'continueSolve': {
-        // Mark all current manual PLACED as locked:true
-        for (const cell of filledCells(board)) {
-          if (!cell.isAnchor) {
-            setState(board, cell.hex, { kind: 'PLACED', aspect: cell.aspect, locked: true });
-          }
-        }
-        activeTool = null;
-        toolbar.setActiveTool(null);
-        void runSolve();
-        break;
-      }
-    }
+    handleTool(name);
   },
 });
 
@@ -406,6 +431,7 @@ const palette = new AspectPalette(paletteContainer, data, (aspect: Aspect) => {
   if (activeTool === 'deadHex' || activeTool === 'erase') {
     activeTool = null;
     toolbar.setActiveTool(null);
+    setBoardToolActive(null);
   }
 });
 
@@ -445,6 +471,43 @@ const inventoryPanel = new InventoryPanel(inventoryContainer, data, {
     persist();
   },
 });
+
+// --- board-tools row (Dead Hex / Erase / Clear) below the board SVG ---
+const boardToolsRow = document.createElement('div');
+boardToolsRow.className = 'board-tools';
+
+const BOARD_TOOL_DEFS: Array<{ name: ToolName; label: string; isToggle: boolean }> = [
+  { name: 'deadHex', label: 'Dead Hex', isToggle: true },
+  { name: 'erase',   label: 'Erase',    isToggle: true },
+  { name: 'clear',   label: 'Clear',    isToggle: false },
+];
+
+for (const def of BOARD_TOOL_DEFS) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'board-tools__btn';
+  btn.textContent = def.label;
+  btn.setAttribute('data-tool', def.name);
+
+  btn.addEventListener('click', () => {
+    if (def.isToggle) {
+      // If already active, toggle off
+      if (activeTool === def.name) {
+        activeTool = null;
+        setBoardToolActive(null);
+      } else {
+        handleTool(def.name);
+      }
+    } else {
+      handleTool(def.name);
+    }
+  });
+
+  boardToolsBtns.set(def.name, btn);
+  boardToolsRow.appendChild(btn);
+}
+
+boardContainer.appendChild(boardToolsRow);
 
 // --- restore persisted state or apply defaults ---
 function restoreState(): void {

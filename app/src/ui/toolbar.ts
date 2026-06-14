@@ -19,9 +19,6 @@ interface ButtonDef {
 }
 
 const BUTTONS: ButtonDef[] = [
-  { name: 'deadHex',       label: 'Dead Hex' },
-  { name: 'erase',         label: 'Erase' },
-  { name: 'clear',         label: 'Clear', action: true },
   { name: 'autoSolve',     label: 'Auto Solve', action: true },
   { name: 'validate',      label: 'Validate', action: true },
   { name: 'continueSolve', label: 'Continue Solve', action: true },
