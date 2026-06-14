@@ -9,7 +9,7 @@ const inv = makeInventory([...data.universe].map((a) => [a, 100] as [string, num
 
 function bench(label: string, radius: number, build: () => Board) {
   const t0 = Date.now();
-  const r = solve({ data, board: build(), inventory: inv, budget: budgetForRadius(radius), now: () => Date.now() });
+  const r = solve({ data, board: build(), inventory: inv, budget: budgetForRadius(radius), seed: true, now: () => Date.now() });
   console.log(label, r.status, 'cost=', r.cost, 'nodes=', r.stats.nodes, 'ms=', Date.now() - t0);
 }
 
