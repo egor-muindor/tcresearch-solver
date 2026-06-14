@@ -18,7 +18,7 @@ describe('hex layout (flat-top)', () => {
   });
 });
 
-describe('status labels (spec §8, human-readable RU)', () => {
+describe('status labels (spec §8, human-readable EN)', () => {
   it('maps every status to a non-empty label', () => {
     for (const s of ['OPTIMAL', 'FEASIBLE_TIMEOUT', 'UNKNOWN_TIMEOUT', 'INFEASIBLE_INVENTORY', 'UNSAT_PROVEN', 'CANCELLED', 'INVALID_INPUT'] as const) {
       expect(statusLabel(s).length).toBeGreaterThan(0);

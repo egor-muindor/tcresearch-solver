@@ -2,3 +2,4 @@ node_modules/
 app/public/aspects/
 v2/
 *.log
+.idea/
