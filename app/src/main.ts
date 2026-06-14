@@ -13,6 +13,7 @@ import {
   filledCells,
 } from './core/board';
 import type { Board, ValidationError } from './core/board';
+import type { Hex } from './core/hex';
 import { MAX_ANCHORS, budgetForRadius } from './core/solver';
 import type { Progress } from './core/solver';
 import type { AllocationResult } from './core/inventory';
@@ -26,6 +27,8 @@ import { InventoryPanel } from './ui/inventoryPanel';
 import { Toolbar } from './ui/toolbar';
 import type { ToolName } from './ui/toolbar';
 import { statusLabel, costLabel } from './ui/format';
+import { startTour } from './ui/tour';
+import type { TourStep } from './ui/tour';
 
 // --- constants ---
 const DEFAULT_RADIUS = 2;
@@ -435,6 +438,32 @@ const palette = new AspectPalette(paletteContainer, data, (aspect: Aspect) => {
   }
 });
 
+// Wire up drag-drop: treat drop as selecting that brush + clicking that cell.
+boardView.setOnCellDrop((h: Hex, aspect: string) => {
+  const resolvedAspect = aspect as Aspect;
+  if (!data.universe.has(resolvedAspect)) return;
+
+  // Select the brush in the palette
+  activeBrush = resolvedAspect;
+  palette.setActiveBrush(resolvedAspect);
+  // Deactivate dead/erase mode
+  if (activeTool === 'deadHex' || activeTool === 'erase') {
+    activeTool = null;
+    toolbar.setActiveTool(null);
+    setBoardToolActive(null);
+  }
+
+  // Place following current placeMode
+  if (placeMode === 'anchor') {
+    setState(board, h, { kind: 'ANCHOR', aspect: resolvedAspect });
+  } else {
+    setState(board, h, { kind: 'PLACED', aspect: resolvedAspect, locked: true });
+  }
+  boardView.render(board);
+  updateAnchorCap();
+  persist();
+});
+
 const inventoryPanel = new InventoryPanel(inventoryContainer, data, {
   onSupplyChange: (aspect: Aspect, count: number) => {
     if (count > 0) {
@@ -557,3 +586,47 @@ updateAnchorCap();
 
 // Suppress unused variable warning: palette is used for side effects (event handlers, DOM)
 void palette;
+
+// --- Help button + guided tour ---
+const TOUR_STEPS: TourStep[] = [
+  {
+    selector: '.col-palette',
+    title: 'Aspects',
+    text: 'Pick an aspect: click to select it as a brush, or drag it straight onto a board cell.',
+  },
+  {
+    selector: '.col-board',
+    title: 'Board',
+    text: 'Place anchors here. With an aspect selected, click an empty cell (Anchor mode) or drag an icon onto it.',
+  },
+  {
+    selector: '.board-tools',
+    title: 'Edit tools',
+    text: 'Block a cell with Dead Hex, remove one with Erase, or reset everything with Clear.',
+  },
+  {
+    selector: '.mode-switch-row',
+    title: 'Mode',
+    text: 'Switch between placing Anchors and Manual aspects.',
+  },
+  {
+    selector: '.col-inventory',
+    title: 'Inventory',
+    text: 'Optionally enter your aspect counts. Account for inventory makes the solver respect scarcity; leave it off to just connect the anchors.',
+  },
+  {
+    selector: '.toolbar',
+    title: 'Solve',
+    text: 'Auto Solve fills the board to connect all anchors. Validate checks a manual board; Continue Solve finishes a partial chain.',
+  },
+];
+
+const helpBtn = document.createElement('button');
+helpBtn.type = 'button';
+helpBtn.className = 'help-btn';
+helpBtn.textContent = '?';
+helpBtn.setAttribute('aria-label', 'Help / guided tour');
+helpBtn.addEventListener('click', () => {
+  startTour(TOUR_STEPS);
+});
+document.body.appendChild(helpBtn);

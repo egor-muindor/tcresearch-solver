@@ -24,12 +24,18 @@ const HATCH_PATTERN_ID = 'dead-hatch';
 
 export class BoardView {
   private svg: SVGSVGElement;
+  private onCellDrop: ((h: Hex, aspect: string) => void) | null = null;
 
   constructor(
     private container: HTMLElement,
     private data: AspectData,
     private onCellClick: (h: Hex) => void,
+    onCellDropParam?: (h: Hex, aspect: string) => void,
   ) {
+    if (onCellDropParam !== undefined) {
+      this.onCellDrop = onCellDropParam;
+    }
+
     this.svg = document.createElementNS(SVG_NS, 'svg');
     this.svg.setAttribute('role', 'img');
     this.svg.setAttribute('aria-label', 'Research board');
@@ -58,7 +64,45 @@ export class BoardView {
       }
     });
 
+    // Drag-over: permit dropping aspects onto cells.
+    this.svg.addEventListener('dragover', (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+
+    // Drop: find the target cell and invoke onCellDrop.
+    this.svg.addEventListener('drop', (e: DragEvent) => {
+      e.preventDefault();
+      if (!this.onCellDrop || !e.dataTransfer) return;
+      const aspect = e.dataTransfer.getData('text/plain');
+      if (!aspect) return;
+      // Walk up from e.target to find data-coord (same logic as click handler).
+      let el: SVGElement | null = e.target as SVGElement | null;
+      while (el && el !== this.svg) {
+        const coord = el.getAttribute('data-coord');
+        if (coord) {
+          const parts = coord.split(',');
+          if (parts.length === 2) {
+            const q = parseInt(parts[0]!, 10);
+            const r = parseInt(parts[1]!, 10);
+            if (!isNaN(q) && !isNaN(r)) {
+              this.onCellDrop({ q, r }, aspect);
+            }
+          }
+          return;
+        }
+        el = el.parentElement as SVGElement | null;
+      }
+    });
+
     this.container.appendChild(this.svg);
+  }
+
+  /** Programmatically set the drop callback after construction. */
+  setOnCellDrop(cb: (h: Hex, aspect: string) => void): void {
+    this.onCellDrop = cb;
   }
 
   render(board: Board, errors: ValidationError[] = []): void {

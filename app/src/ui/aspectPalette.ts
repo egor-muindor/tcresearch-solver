@@ -42,9 +42,17 @@ export class AspectPalette {
 
       item.appendChild(img);
 
+      item.setAttribute('draggable', 'true');
+
       item.addEventListener('click', () => {
         this.setActiveBrush(aspect);
         this.onAspectPick(aspect);
+      });
+
+      item.addEventListener('dragstart', (e: DragEvent) => {
+        if (!e.dataTransfer) return;
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('text/plain', aspect);
       });
 
       item.addEventListener('mouseenter', (e: MouseEvent) => {
