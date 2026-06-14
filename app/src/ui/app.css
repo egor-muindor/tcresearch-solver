@@ -813,6 +813,105 @@ body {
   opacity: 0.8;
 }
 
+/* ===== Custom confirm modal ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-card {
+  /* Parchment card with wood border — mirrors .tour-card */
+  background-color: var(--parchment-base);
+  background-image: var(--parchment-noise-svg), var(--parchment-vignette);
+  background-blend-mode: multiply, normal;
+  background-size: 200px 200px, 100% 100%;
+  border: 2px solid var(--wood-border-dark);
+  border-top-color: var(--gold);
+  border-radius: 5px;
+  padding: 18px 20px 14px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(200, 151, 58, 0.25);
+  color: var(--parchment-text);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  text-align: center;
+}
+
+.modal-message {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.modal-btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Base modal button — inherits the wood-button look */
+.modal-btn {
+  background-color: #3b2410;
+  background-image: var(--wood-grain-svg), var(--wood-stripes);
+  background-blend-mode: overlay, overlay;
+  color: var(--wood-text);
+  border: 1px solid var(--wood-border-dark);
+  border-top-color: #7a5030;
+  border-radius: 3px;
+  padding: 4px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(200, 151, 58, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  transition: box-shadow 0.1s, filter 0.1s;
+}
+
+.modal-btn:hover {
+  filter: brightness(1.18);
+  box-shadow:
+    inset 0 1px 0 rgba(200, 151, 58, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.modal-btn:active {
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.7),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  filter: brightness(0.9);
+}
+
+/* Confirm variant: gold accent to signal primary action */
+.modal-btn--confirm {
+  background-color: #4a2e08;
+  border-color: var(--gold);
+  border-top-color: var(--gold-bright);
+  color: var(--gold-bright);
+}
+
+/* Cancel variant: slightly muted / red-brown tint */
+.modal-btn--cancel {
+  background-color: #3a1a08;
+  border-color: #6a3a18;
+  opacity: 0.85;
+}
+
+.modal-btn--cancel:hover {
+  opacity: 1;
+}
+
 /* ===== Scrollbar styling (parchment tone) ===== */
 ::-webkit-scrollbar {
   width: 5px;

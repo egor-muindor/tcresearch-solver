@@ -29,6 +29,7 @@ import type { ToolName } from './ui/toolbar';
 import { statusLabel, costLabel } from './ui/format';
 import { startTour } from './ui/tour';
 import type { TourStep } from './ui/tour';
+import { confirmDialog } from './ui/modal';
 
 // --- constants ---
 const DEFAULT_RADIUS = 2;
@@ -150,6 +151,8 @@ mainEl.appendChild(inventoryContainer);
 const footerEl = document.createElement('footer');
 footerEl.className = 'app-footer';
 footerEl.innerHTML =
+  '<a href="https://github.com/egor-muindor/tcresearch-solver" target="_blank" rel="noopener noreferrer">Source code</a>' +
+  ' &middot; ' +
   'Aspect data &amp; icons &copy; original authors, ' +
   '<a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC-BY-4.0</a>. ' +
   'Original sources: <a href="https://github.com/ythri/tcresearch" target="_blank" rel="noopener noreferrer">ythri/tcresearch</a> ' +
@@ -310,7 +313,7 @@ function setBoardToolActive(name: ToolName | null): void {
 }
 
 // --- core tool handler (factored so toolbar + board-tools row both call it) ---
-function handleTool(name: ToolName): void {
+async function handleTool(name: ToolName): Promise<void> {
   activeTool = name;
   switch (name) {
     case 'deadHex':
@@ -321,7 +324,7 @@ function handleTool(name: ToolName): void {
       toolbar.setActiveTool(null); // toolbar no longer has these
       break;
     case 'clear': {
-      const ok = confirm('Clear all cells?');
+      const ok = await confirmDialog('Clear all cells?');
       if (ok) {
         board = createBoard(board.radius);
         invalidateSolve();
@@ -370,10 +373,10 @@ function handleTool(name: ToolName): void {
 // --- UI component callbacks ---
 
 const toolbar = new Toolbar(toolbarContainer, {
-  onRadiusChange: (r: number) => {
+  onRadiusChange: async (r: number) => {
     const filled = filledCells(board);
     if (filled.length > 0) {
-      const ok = confirm(
+      const ok = await confirmDialog(
         'Changing the radius will reset the board (' + filled.length + ' filled cells). Continue?',
       );
       if (!ok) {
@@ -388,7 +391,7 @@ const toolbar = new Toolbar(toolbarContainer, {
     persist();
   },
   onTool: (name: ToolName) => {
-    handleTool(name);
+    void handleTool(name);
   },
 });
 
@@ -550,10 +553,10 @@ for (const def of BOARD_TOOL_DEFS) {
         activeTool = null;
         setBoardToolActive(null);
       } else {
-        handleTool(def.name);
+        void handleTool(def.name);
       }
     } else {
-      handleTool(def.name);
+      void handleTool(def.name);
     }
   });
 
