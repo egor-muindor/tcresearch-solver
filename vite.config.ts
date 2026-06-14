@@ -2,10 +2,10 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   root: 'app',
-  base: '/tcresearch-solver/v2/',
+  base: '/tcresearch-solver/',
   publicDir: 'public',
   build: {
-    outDir: '../v2',
+    outDir: '../dist',
     emptyOutDir: true,
     target: 'es2022',
   },
