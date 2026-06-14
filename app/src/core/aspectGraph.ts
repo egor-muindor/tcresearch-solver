@@ -1,12 +1,16 @@
 import type { Aspect, AspectData } from '../data/aspects';
 
 export function neighbors(data: AspectData, a: Aspect): ReadonlySet<Aspect> {
-  return data.adjacency.get(a) ?? new Set<Aspect>();
+  // Defensive copy: data.adjacency holds live backing Sets and ReadonlySet is compile-time only,
+  // so hand out a copy to stop a (casting) caller corrupting the shared graph.
+  const backing = data.adjacency.get(a);
+  return backing ? new Set(backing) : new Set<Aspect>();
 }
 
 export function isValidLink(data: AspectData, a: Aspect, b: Aspect): boolean {
   if (a === b) return false;
-  return neighbors(data, a).has(b);
+  // Hot path (called per candidate in the solver): read the backing set directly, no per-call copy.
+  return data.adjacency.get(a)?.has(b) ?? false;
 }
 
 /** Direct multiplicity of component `x` in the recipe of `y` (0, 1, or 2). */
@@ -25,7 +29,7 @@ export function primalVec(data: AspectData, a: Aspect): ReadonlyMap<Aspect, numb
     primalVecCache.set(data, cache);
   }
   const cached = cache.get(a);
-  if (cached) return cached;
+  if (cached) return new Map(cached);
 
   let result: Map<Aspect, number>;
   if (data.primals.has(a)) {
@@ -41,5 +45,5 @@ export function primalVec(data: AspectData, a: Aspect): ReadonlyMap<Aspect, numb
     }
   }
   cache.set(a, result);
-  return result;
+  return new Map(result);
 }

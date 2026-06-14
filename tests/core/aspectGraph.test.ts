@@ -47,6 +47,21 @@ describe('primalVec', () => {
   });
 });
 
+describe('aspectGraph encapsulation (defensive copies)', () => {
+  const d = buildAspectData();
+  it('neighbors() result cannot corrupt the backing graph', () => {
+    const ns = neighbors(d, 'air') as unknown as Set<string>;
+    ns.add('earth');
+    expect(isValidLink(d, 'air', 'earth')).toBe(false);
+    expect(neighbors(d, 'air').has('earth')).toBe(false);
+  });
+  it('primalVec() result cannot poison the memo cache', () => {
+    const v = primalVec(d, 'void') as unknown as Map<string, number>;
+    v.set('air', 999);
+    expect(primalVec(d, 'void').get('air')).toBe(1);
+  });
+});
+
 describe('mult (direct multiplicity in a recipe)', () => {
   it('is 0 for a primal target', () => {
     expect(mult(data, 'air', 'air')).toBe(0);
