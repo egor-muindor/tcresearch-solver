@@ -325,9 +325,163 @@ function solverPlacements(initial: Board, solved: Board): Placement[] {
   return out;
 }
 
-// Seeding stub for Task 6.4: no-op (the exhaustive search finds the optimum regardless). The real
-// untrusted pairwise-Dijkstra seed is the OPTIONAL Task 6.7, which replaces this function and gates
-// on opts.seed. Until then seeding is inert and correctness is unaffected (spec §5.3).
-function seedIncumbent(_opts: SolveOptions, _accept: (board: Board) => void): void {
-  /* no-op until Task 6.7 */
+// Anytime seed (spec §5.3, Task 6.7): pairwise-Dijkstra stitched candidate. UNTRUSTED — the accept
+// gate runs validate() + allAnchorsConnected + allocate before writing the incumbent, so a wrong
+// seed is silently dropped. Gated on opts.seed (default off) so unit tests of the pure search
+// are completely unaffected.
+function seedIncumbent(opts: SolveOptions, accept: (board: Board) => void): void {
+  if (!opts.seed) return;
+  const { data, board: initial, inventory } = opts;
+  const anchors = anchorCells(initial);
+  if (anchors.length < 2) return;
+
+  // Greedy chain: connect anchor[0] to each other anchor by the cheapest product-path,
+  // laying placements onto a single candidate board so each later Dijkstra sees the
+  // cells committed by earlier paths.
+  const candidate = cloneBoard(initial);
+  for (let i = 1; i < anchors.length; i++) {
+    const path = cheapestProductPath(data, candidate, inventory, anchors[0]!, anchors[i]!);
+    if (!path) return; // give up; exhaustive search still runs
+    for (const { hex, aspect } of path) {
+      if (getState(candidate, hex).kind === 'EMPTY') {
+        setState(candidate, hex, { kind: 'PLACED', aspect, locked: false });
+      }
+    }
+  }
+  accept(candidate); // trusted gate: validate + feasibility checks happen inside
+}
+
+/**
+ * Dijkstra over a "product graph" whose states are (cell, aspect) pairs.
+ * Returns the cheapest aspect-labelled path of cells from `from` to `to`
+ * (excluding the endpoints themselves), or null if no path exists.
+ *
+ * Edge weight = obtainCost(newAspect). UNTRUSTED — caller validates.
+ */
+function cheapestProductPath(
+  data: AspectData,
+  board: Board,
+  inv: Inventory,
+  from: { hex: Hex; aspect: Aspect },
+  to: { hex: Hex; aspect: Aspect },
+): Array<{ hex: Hex; aspect: Aspect }> | null {
+  // Degenerate: if from and to are already adjacent and validly linked, no intermediate cells needed.
+  for (const n of neighborsOf(from.hex)) {
+    if (n.q === to.hex.q && n.r === to.hex.r && isValidLink(data, from.aspect, to.aspect)) {
+      return [];
+    }
+  }
+
+  type State = string; // `${hexKey}|${aspect}`
+  const stateKey = (h: Hex, a: Aspect): State => `${hexKey(h)}|${a}`;
+  const startState = stateKey(from.hex, from.aspect);
+
+  const dist = new Map<State, number>([[startState, 0]]);
+  // prev maps state -> {prevState, hex, aspect, existing} for path reconstruction.
+  // existing=true means the cell was already placed (traversal only, not a new placement).
+  const prev = new Map<State, { prevState: State; hex: Hex; aspect: Aspect; existing: boolean }>();
+  const visited = new Set<State>();
+
+  // Simple Dijkstra with linear scan for minimum (board radius <= 5, universe <= ~80 aspects,
+  // so the priority queue is at most ~O(cells * aspects) ≈ 60*80 = 4800 entries — linear scan fine).
+  for (;;) {
+    // Find the unvisited state with minimum distance
+    let minCost = Number.POSITIVE_INFINITY;
+    let minState: State | null = null;
+    for (const [s, d] of dist) {
+      if (!visited.has(s) && d < minCost) {
+        minCost = d;
+        minState = s;
+      }
+    }
+    if (minState === null) return null; // queue empty, no path
+
+    visited.add(minState);
+    const pipeIdx = minState.lastIndexOf('|');
+    const hKey = minState.slice(0, pipeIdx);
+    const curAspect = minState.slice(pipeIdx + 1) as Aspect;
+    const curHex = parseHexKey(hKey);
+
+    // Expand neighbours
+    for (const n of neighborsOf(curHex)) {
+      if (!isOnBoard(n, board.radius)) continue;
+      const nk = hexKey(n);
+      const ns = board.cells.get(nk);
+      const nsKind = ns?.kind ?? 'EMPTY';
+
+      // GOAL CHECK: n is the target anchor itself
+      if (n.q === to.hex.q && n.r === to.hex.r) {
+        if (isValidLink(data, curAspect, to.aspect)) {
+          // Reconstruct path: only include newly-placed cells (not existing traversal steps).
+          const path: Array<{ hex: Hex; aspect: Aspect }> = [];
+          let cur: State = minState;
+          while (cur !== startState) {
+            const p = prev.get(cur)!;
+            if (!p.existing) path.push({ hex: p.hex, aspect: p.aspect });
+            cur = p.prevState;
+          }
+          path.reverse();
+          return path;
+        }
+        continue; // not validly linked to target — don't expand through it
+      }
+
+      // DEAD cells cannot be traversed or placed on.
+      if (nsKind === 'DEAD') continue;
+
+      if (nsKind === 'PLACED' || nsKind === 'ANCHOR') {
+        // Already-filled cells (from prior seed paths or the initial board) can be
+        // traversed for free if the current aspect links validly to their aspect.
+        // No new placement is needed; only the endpoint matters for connectivity.
+        const filledAspect = (ns as { aspect: Aspect }).aspect;
+        if (filledAspect === curAspect) continue; // same aspect — invalid link
+        if (!isValidLink(data, curAspect, filledAspect)) continue;
+        const ns2 = stateKey(n, filledAspect);
+        if (visited.has(ns2)) continue;
+        const newCost = minCost; // traversal is free (cell already placed)
+        const oldCost = dist.get(ns2) ?? Number.POSITIVE_INFINITY;
+        if (newCost < oldCost) {
+          dist.set(ns2, newCost);
+          // prevEntry hex=n, aspect=filledAspect, but mark as traversal (not a new placement)
+          // by storing the existing state. The path reconstruction will skip non-new cells.
+          prev.set(ns2, { prevState: minState, hex: n, aspect: filledAspect, existing: true });
+        }
+        continue;
+      }
+
+      // EMPTY cell: try each aspect for placing at n
+      for (const b of data.universe) {
+        if (b === curAspect) continue; // must differ from predecessor
+        if (!isValidLink(data, curAspect, b)) continue;
+        // Validate against all existing filled neighbors of n on the board
+        if (!validAgainstBoard(data, board, b, n)) continue;
+
+        const ns2 = stateKey(n, b);
+        if (visited.has(ns2)) continue;
+        const newCost = minCost + obtainCost(inv, data, b);
+        const oldCost = dist.get(ns2) ?? Number.POSITIVE_INFINITY;
+        if (newCost < oldCost) {
+          dist.set(ns2, newCost);
+          prev.set(ns2, { prevState: minState, hex: n, aspect: b, existing: false });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Returns true if placing aspect `b` at hex `n` is consistent with all existing
+ * filled (ANCHOR or PLACED) neighbors of `n` on the board.
+ */
+function validAgainstBoard(data: AspectData, board: Board, b: Aspect, n: Hex): boolean {
+  for (const m of neighborsOf(n)) {
+    if (!isOnBoard(m, board.radius)) continue;
+    const ms = board.cells.get(hexKey(m));
+    if (!ms) continue; // EMPTY
+    if (ms.kind !== 'ANCHOR' && ms.kind !== 'PLACED') continue; // DEAD/EMPTY impose no constraint
+    const ma = ms.aspect;
+    if (ma === b) return false; // same aspect adjacent
+    if (!isValidLink(data, b, ma)) return false;
+  }
+  return true;
 }
