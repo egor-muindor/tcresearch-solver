@@ -3,3 +3,4 @@ app/public/aspects/
 dist/
 *.log
 .idea/
+tmp/

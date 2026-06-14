@@ -11,7 +11,7 @@ describe('worker protocol', () => {
     setState(b, { q: -1, r: 0 }, { kind: 'ANCHOR', aspect: 'air' });
     setState(b, { q: 1, r: 0 }, { kind: 'ANCHOR', aspect: 'entropy' });
     const req = encodeSolveRequest({
-      version: '4.2.2.0', addons: ['fm', 'mb', 'gt'],
+      version: '4.2.2.0', addons: ['fm', 'mb', 'gt', 'tb', 'av'],
       board: serializeBoard(b),
       supply: [['air', 100], ['entropy', 100]], threshold: 50,
       budget: { maxNodes: 1000, maxTimeMs: 100 },

@@ -24,7 +24,8 @@ SOFTWARE.
 
 The MIT license above applies to the source code of this project only.
 
-The aspect data and icons bundled in this repository (under `aspects/`) are
-derived from https://github.com/ythri/tcresearch and are licensed separately
-under the Creative Commons Attribution 4.0 License
-(http://creativecommons.org/licenses/by/4.0/), (c) their original authors.
+The aspect icons bundled under `aspects/` are extracted directly from the
+GregTech: New Horizons modpack (Thaumcraft 4.2.3.5a and its addons — GregTech,
+Forbidden Magic, Magic Bees, Thaumic Boots, Avaritia) by
+`scripts/extract-aspects.mjs`. They remain the property of their respective mod
+authors and are bundled here solely to render the in-game research aspects.

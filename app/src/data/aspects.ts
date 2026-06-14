@@ -20,7 +20,7 @@ export class AspectDataError extends Error {
 export interface BuildOptions {
   /** Default '4.2.2.0' — only that version is ported. */
   version?: '4.2.2.0';
-  /** Default ['fm','mb','gt']. */
+  /** Default ['fm','mb','gt','tb','av'] (every Thaumcraft addon in GTNH that registers aspects). */
   addons?: readonly string[];
   /** Test-only: replace the entire combinations map (bypasses version/addons). */
   overrideCombinations?: Record<string, [Aspect, Aspect]>;
@@ -41,7 +41,7 @@ export function buildAspectData(opts: BuildOptions = {}): AspectData {
     for (const a of opts.overrideDeclaredAspects ?? []) declared.add(a);
   } else {
     for (const [k, v] of Object.entries(COMBINATIONS_4_2_2_0)) combos.set(k, v);
-    for (const id of opts.addons ?? ['fm', 'mb', 'gt']) {
+    for (const id of opts.addons ?? ['fm', 'mb', 'gt', 'tb', 'av']) {
       const addon = ADDONS[id];
       if (!addon) throw new AspectDataError(`unknown addon '${id}'`);
       for (const a of addon.aspects) declared.add(a);

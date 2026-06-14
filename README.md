@@ -37,7 +37,7 @@ The source code in this repository is licensed under the **MIT License**
 (see [LICENSE](LICENSE)). This is an independent reimplementation — no code was
 copied from the original projects.
 
-The bundled **aspect data and icons** (under `aspects/`) are derived from
-[ythri/tcresearch](https://github.com/ythri/tcresearch) and remain licensed
-under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/), © their original
-authors.
+The aspect data and icons are **extracted directly from the GregTech: New
+Horizons modpack** (Thaumcraft 4.2.3.5a and its addons) by
+[`scripts/extract-aspects.mjs`](scripts/extract-aspects.mjs). The bundled icons
+under `aspects/` remain the property of their respective mod authors.
