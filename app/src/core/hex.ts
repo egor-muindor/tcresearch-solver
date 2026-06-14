@@ -13,11 +13,14 @@ export function hexKey(h: Hex): string {
 }
 
 export function parseHexKey(key: string): Hex {
+  // Strict: exactly one comma, both sides signed integers. parseHexKey also parses external/untrusted
+  // coords during board deserialization (spec §2.3), so malformed keys must fail loudly.
   const i = key.indexOf(',');
-  const q = Number(key.slice(0, i));
-  const r = Number(key.slice(i + 1));
-  if (!Number.isInteger(q) || !Number.isInteger(r)) throw new Error(`bad hex key: ${key}`);
-  return { q, r };
+  if (i < 0 || i !== key.lastIndexOf(',')) throw new Error(`bad hex key: ${key}`);
+  const qs = key.slice(0, i);
+  const rs = key.slice(i + 1);
+  if (!/^-?\d+$/.test(qs) || !/^-?\d+$/.test(rs)) throw new Error(`bad hex key: ${key}`);
+  return { q: Number(qs), r: Number(rs) };
 }
 
 export function neighborsOf(h: Hex): Hex[] {

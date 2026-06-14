@@ -39,4 +39,10 @@ describe('hex geometry', () => {
     expect(isOnBoard({ q: 3, r: 0 }, 2)).toBe(false);
     expect(boardCells(3).every((h) => isOnBoard(h, 3))).toBe(true);
   });
+
+  it('rejects malformed hex keys (also guards board deserialization, spec §2.3)', () => {
+    for (const bad of ['1', ',1', '1,', '1,2,3', '', 'a,b', '1.5,2', ' ,3']) {
+      expect(() => parseHexKey(bad)).toThrow();
+    }
+  });
 });
