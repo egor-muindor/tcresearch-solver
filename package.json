@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "build": "node scripts/copy-assets.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --base /tcresearch-solver/",
+    "deploy": "node scripts/deploy-gh-pages.mjs",
     "test": "bun test"
   },
   "devDependencies": {

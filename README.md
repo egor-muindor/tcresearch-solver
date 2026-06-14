@@ -29,7 +29,12 @@ bun test           # unit tests
 bunx tsc --noEmit  # typecheck
 bun run build      # production build -> dist/
 bun run preview    # preview the production build under /tcresearch-solver/
+bun run deploy     # build + publish dist/ to the gh-pages branch (force-push)
 ```
+
+Aspect data and icons are regenerated from the modpack jars with
+`node scripts/extract-aspects.mjs` (requires the GTNH jars in `tmp/mods`, a JDK,
+and python3 + Pillow).
 
 ## License
 
