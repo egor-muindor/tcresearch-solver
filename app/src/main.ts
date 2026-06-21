@@ -170,6 +170,8 @@ footerEl.className = 'app-footer';
 footerEl.innerHTML =
   '<a href="https://github.com/egor-muindor/tcresearch-solver" target="_blank" rel="noopener noreferrer">Source code</a>' +
   ' &middot; ' +
+  '<a href="https://github.com/egor-muindor/thaumcraft-research-solver" target="_blank" rel="noopener noreferrer">In-game GTNH mod</a>' +
+  ' &middot; ' +
   'Aspect data &amp; icons extracted from the ' +
   '<a href="https://github.com/GTNewHorizons" target="_blank" rel="noopener noreferrer">GregTech: New Horizons</a> ' +
   'modpack &mdash; &copy; their respective mod authors.';

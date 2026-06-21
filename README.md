@@ -7,6 +7,11 @@ crafting, and minimizing (inventory deficit, cell count).
 
 **▶ Live app: https://egor-muindor.github.io/tcresearch-solver/**
 
+**🎮 Prefer to solve in-game?** The same solver ships as a client-side **GregTech:
+New Horizons** addon that adds a **Solve** button straight to the Thaumcraft
+research table — see
+[**Thaumcraft Research Solver**](https://github.com/egor-muindor/thaumcraft-research-solver).
+
 ## Features
 
 - Hex board of radius 2–5; place anchors, dead cells, or manual aspects.
